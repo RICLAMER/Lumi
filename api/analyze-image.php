@@ -9,35 +9,36 @@ require_once __DIR__ . '/../src/AiService.php';
 require_post();
 require_csrf();
 $user = require_user();
+$language = request_language($user);
 
 try {
     if (!isset($_FILES['image']) || !is_array($_FILES['image'])) {
-        json_response(['ok' => false, 'message' => 'Escolha uma foto para enviar.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'choose_photo_error')], 422);
     }
 
     $upload = $_FILES['image'];
     if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        json_response(['ok' => false, 'message' => 'Não conseguimos receber essa foto.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'receive_photo_error')], 422);
     }
     if ((int) ($upload['size'] ?? 0) > 8 * 1024 * 1024) {
-        json_response(['ok' => false, 'message' => 'A foto deve ter no máximo 8 MB.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'image_max_error')], 422);
     }
     if (!function_exists('imagecreatefromstring')) {
-        throw new RuntimeException('O tratamento seguro de imagens não está disponível.');
+        throw new RuntimeException(lumi_t($language, 'image_processing_unavailable'));
     }
 
     $raw = file_get_contents((string) $upload['tmp_name']);
     $info = $raw !== false ? @getimagesizefromstring($raw) : false;
     if ($raw === false || !$info || !in_array($info['mime'], ['image/jpeg', 'image/png', 'image/webp'], true)) {
-        json_response(['ok' => false, 'message' => 'Envie uma imagem JPG, PNG ou WebP.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'image_format_error')], 422);
     }
     if ($info[0] < 120 || $info[1] < 120 || $info[0] > 6000 || $info[1] > 6000) {
-        json_response(['ok' => false, 'message' => 'Escolha uma foto com tamanho e resolução adequados.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'image_resolution_error')], 422);
     }
 
     $source = @imagecreatefromstring($raw);
     if (!$source) {
-        json_response(['ok' => false, 'message' => 'Não conseguimos abrir essa foto.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'image_open_error')], 422);
     }
 
     $maxEdge = 1280;
@@ -55,10 +56,18 @@ try {
     imagedestroy($source);
     imagedestroy($canvas);
 
-    $remaining = reserve_ai_request($user, 'image');
-    $result = (new AiService())->analyzeImage($cleanJpeg, age_group($user['age']));
+    $usage = reserve_ai_request($user, 'image');
+    $result = (new AiService())->analyzeImage(
+        $cleanJpeg,
+        age_group($user['age']),
+        $language
+    );
 
-    json_response(['ok' => true, 'result' => $result, 'remaining' => $remaining]);
+    json_response([
+        'ok' => true,
+        'result' => $result,
+        'usage' => array_merge(['type' => 'image'], $usage),
+    ]);
 } catch (RuntimeException $exception) {
     log_event('image_analysis_failed', [
         'user_id' => $user['id'],
@@ -74,6 +83,6 @@ try {
     ]);
     json_response([
         'ok' => false,
-        'message' => 'Não consegui entender essa foto agora. Tente novamente com mais luz.',
+        'message' => lumi_t($language, 'image_analysis_error'),
     ], 500);
 }

@@ -9,19 +9,21 @@ require_post();
 require_csrf();
 
 $input = json_input();
+$language = request_language();
 $email = strtolower(trim((string) ($input['email'] ?? '')));
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    json_response(['ok' => false, 'message' => 'Informe um e-mail válido.'], 422);
+    json_response(['ok' => false, 'message' => lumi_t($language, 'email_invalid')], 422);
 }
 
 try {
     $statement = db()->prepare(
-        'SELECT id, display_name, verified_at FROM users WHERE email = :email LIMIT 1'
+        'SELECT id, display_name, language, verified_at FROM users WHERE email = :email LIMIT 1'
     );
     $statement->execute(['email' => $email]);
     $user = $statement->fetch();
 
     if ($user && empty($user['verified_at'])) {
+        $language = normalize_language((string) $user['language']);
         $token = bin2hex(random_bytes(32));
         $statement = db()->prepare(
             'UPDATE users
@@ -36,15 +38,16 @@ try {
         (new Mailer())->sendVerification(
             $email,
             (string) $user['display_name'],
-            app_url('verify.php?token=' . $token)
+            app_url('verify.php?token=' . $token),
+            $language
         );
     }
 
     json_response([
         'ok' => true,
-        'message' => 'Se o cadastro estiver aguardando confirmação, um novo e-mail foi enviado.',
+        'message' => lumi_t($language, 'resend_generic'),
     ]);
 } catch (Throwable $exception) {
     log_event('verification_resend_failed', ['exception' => $exception::class]);
-    json_response(['ok' => false, 'message' => 'Não foi possível reenviar agora.'], 500);
+    json_response(['ok' => false, 'message' => lumi_t($language, 'resend_failed')], 500);
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 const LUMI_ROOT = __DIR__ . '/..';
 
+require_once __DIR__ . '/i18n.php';
+
 function load_env(string $path): void
 {
     if (!is_file($path)) {
@@ -108,7 +110,8 @@ function require_csrf(): void
 {
     $provided = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_token'] ?? '';
     if (!is_string($provided) || !hash_equals(csrf_token(), $provided)) {
-        json_response(['ok' => false, 'message' => 'Sua sessão expirou. Atualize a página e tente novamente.'], 419);
+        $language = request_language();
+        json_response(['ok' => false, 'message' => lumi_t($language, 'csrf_expired')], 419);
     }
 }
 
@@ -129,7 +132,8 @@ function json_response(array $payload, int $status = 200): never
 function require_post(): void
 {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
-        json_response(['ok' => false, 'message' => 'Método não permitido.'], 405);
+        $language = request_language();
+        json_response(['ok' => false, 'message' => lumi_t($language, 'method_not_allowed')], 405);
     }
 }
 
@@ -246,6 +250,52 @@ function ensure_schema(PDO $pdo): void
              ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
         );
         $statement->execute();
+        $version = 2;
+    }
+
+    if ((int) $version < 3) {
+        $languageColumn = $pdo->query("SHOW COLUMNS FROM users LIKE 'language'")->fetch();
+        if (!$languageColumn) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN language CHAR(2) NULL AFTER age");
+        }
+        $pdo->exec(
+            "UPDATE users SET language = 'pt'
+             WHERE language IS NULL OR language NOT IN ('en', 'pt', 'es')"
+        );
+        $pdo->exec(
+            "ALTER TABLE users MODIFY language CHAR(2) NOT NULL DEFAULT 'en'"
+        );
+
+        $statement = $pdo->prepare(
+            "INSERT INTO app_meta (meta_key, meta_value) VALUES ('schema_version', '3')
+             ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
+        );
+        $statement->execute();
+        $version = 3;
+    }
+
+    if ((int) $version < 4) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS app_settings (
+                setting_key VARCHAR(80) PRIMARY KEY,
+                setting_value VARCHAR(255) NOT NULL,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $pdo->exec(
+            'INSERT IGNORE INTO app_settings (setting_key, setting_value) VALUES
+                ("registration_attempt_limit", "3"),
+                ("registration_window_seconds", "300"),
+                ("image_daily_limit", "5"),
+                ("voice_daily_limit", "5")'
+        );
+
+        $statement = $pdo->prepare(
+            "INSERT INTO app_meta (meta_key, meta_value) VALUES ('schema_version', '4')
+             ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
+        );
+        $statement->execute();
     }
 }
 
@@ -253,11 +303,12 @@ function ensure_tester(PDO $pdo): void
 {
     $email = strtolower(trim((string) env('TESTER_EMAIL', '')));
     $password = (string) env('TESTER_PASSWORD', '');
+    $language = normalize_language((string) env('TESTER_LANGUAGE', 'en'));
     if ($email === '' || $password === '') {
         return;
     }
 
-    $fingerprint = hash('sha256', $email . "\0" . $password);
+    $fingerprint = hash('sha256', $email . "\0" . $password . "\0" . $language);
     $statement = $pdo->prepare("SELECT meta_value FROM app_meta WHERE meta_key = 'tester_fingerprint'");
     $statement->execute();
     if (hash_equals((string) ($statement->fetchColumn() ?: ''), $fingerprint)) {
@@ -267,11 +318,12 @@ function ensure_tester(PDO $pdo): void
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
     $statement = $pdo->prepare(
         'INSERT INTO users
-            (email, display_name, age, password_hash, verified_at, is_tester)
+            (email, display_name, age, language, password_hash, verified_at, is_tester)
          VALUES
-            (:email, :display_name, 10, :password_hash, NOW(), 1)
+            (:email, :display_name, 10, :language, :password_hash, NOW(), 1)
          ON DUPLICATE KEY UPDATE
             display_name = VALUES(display_name),
+            language = VALUES(language),
             password_hash = VALUES(password_hash),
             verified_at = NOW(),
             is_tester = 1'
@@ -279,6 +331,7 @@ function ensure_tester(PDO $pdo): void
     $statement->execute([
         'email' => $email,
         'display_name' => 'Explorador Tester',
+        'language' => $language,
         'password_hash' => $passwordHash,
     ]);
 
@@ -305,7 +358,7 @@ function current_user(): ?array
     }
 
     $statement = db()->prepare(
-        'SELECT id, email, display_name, age, verified_at, is_tester
+        'SELECT id, email, display_name, age, language, verified_at, is_tester
          FROM users WHERE id = :id LIMIT 1'
     );
     $statement->execute(['id' => $userId]);
@@ -318,6 +371,7 @@ function current_user(): ?array
 
     $row['id'] = (int) $row['id'];
     $row['age'] = (int) $row['age'];
+    $row['language'] = normalize_language((string) $row['language']);
     $row['is_tester'] = (bool) $row['is_tester'];
     $user = $row;
     return $user;
@@ -327,7 +381,8 @@ function require_user(): array
 {
     $user = current_user();
     if (!$user) {
-        json_response(['ok' => false, 'message' => 'Entre na sua conta para continuar.'], 401);
+        $language = request_language();
+        json_response(['ok' => false, 'message' => lumi_t($language, 'auth_required')], 401);
     }
     return $user;
 }
@@ -335,23 +390,85 @@ function require_user(): array
 function age_group(int $age): string
 {
     return match (true) {
-        $age <= 8 => '6 a 8 anos',
-        $age <= 11 => '9 a 11 anos',
-        default => '12 a 14 anos',
+        $age <= 8 => '6-8',
+        $age <= 11 => '9-11',
+        default => '12-14',
     };
 }
 
-function reserve_ai_request(array $user, string $type): int
+function default_app_settings(): array
+{
+    return [
+        'registration_attempt_limit' => 3,
+        'registration_window_seconds' => 300,
+        'image_daily_limit' => 5,
+        'voice_daily_limit' => 5,
+    ];
+}
+
+function load_app_settings(?PDO $pdo = null): array
+{
+    $pdo ??= db();
+    $settings = default_app_settings();
+    $rows = $pdo->query('SELECT setting_key, setting_value FROM app_settings')->fetchAll();
+    foreach ($rows as $row) {
+        $key = (string) $row['setting_key'];
+        if (array_key_exists($key, $settings)) {
+            $settings[$key] = (int) $row['setting_value'];
+        }
+    }
+    return $settings;
+}
+
+function app_setting_int(string $key): int
+{
+    static $settings = null;
+    if (!is_array($settings)) {
+        $settings = load_app_settings();
+    }
+    $defaults = default_app_settings();
+    return (int) ($settings[$key] ?? $defaults[$key] ?? 0);
+}
+
+function ai_usage_summary(array $user): array
+{
+    $statement = db()->prepare(
+        'SELECT image_requests, voice_requests
+         FROM ai_usage
+         WHERE user_id = :user_id AND usage_date = CURRENT_DATE()
+         LIMIT 1'
+    );
+    $statement->execute(['user_id' => $user['id']]);
+    $row = $statement->fetch() ?: [];
+
+    $imageLimit = app_setting_int('image_daily_limit');
+    $voiceLimit = app_setting_int('voice_daily_limit');
+    $imageUsed = (int) ($row['image_requests'] ?? 0);
+    $voiceUsed = (int) ($row['voice_requests'] ?? 0);
+
+    return [
+        'image' => [
+            'used' => $imageUsed,
+            'limit' => $imageLimit,
+            'remaining' => max(0, $imageLimit - $imageUsed),
+        ],
+        'voice' => [
+            'used' => $voiceUsed,
+            'limit' => $voiceLimit,
+            'remaining' => max(0, $voiceLimit - $voiceUsed),
+        ],
+    ];
+}
+
+function reserve_ai_request(array $user, string $type): array
 {
     $column = match ($type) {
         'image' => 'image_requests',
         'voice' => 'voice_requests',
-        default => throw new InvalidArgumentException('Tipo de uso inválido.'),
+        default => throw new InvalidArgumentException('Invalid usage type.'),
     };
-    $limit = (int) env(
-        $user['is_tester'] ? 'TESTER_DAILY_AI_LIMIT' : 'USER_DAILY_AI_LIMIT',
-        $user['is_tester'] ? 30 : 8
-    );
+    $limit = app_setting_int($type . '_daily_limit');
+    $language = request_language($user);
 
     $pdo = db();
     $pdo->beginTransaction();
@@ -362,15 +479,17 @@ function reserve_ai_request(array $user, string $type): int
         $insert->execute(['user_id' => $user['id']]);
 
         $select = $pdo->prepare(
-            'SELECT total_requests FROM ai_usage
-             WHERE user_id = :user_id AND usage_date = CURRENT_DATE() FOR UPDATE'
+            "SELECT {$column} FROM ai_usage
+             WHERE user_id = :user_id AND usage_date = CURRENT_DATE() FOR UPDATE"
         );
         $select->execute(['user_id' => $user['id']]);
         $current = (int) $select->fetchColumn();
         if ($current >= $limit) {
             $pdo->rollBack();
             throw new RuntimeException(
-                'Você já fez muitas descobertas hoje. Volte amanhã para continuar explorando!'
+                lumi_t($language, 'daily_limit_message', [
+                    'type' => lumi_t($language, 'type_' . $type),
+                ])
             );
         }
 
@@ -382,7 +501,12 @@ function reserve_ai_request(array $user, string $type): int
         $update->execute(['user_id' => $user['id']]);
         $pdo->commit();
 
-        return max(0, $limit - $current - 1);
+        $used = $current + 1;
+        return [
+            'used' => $used,
+            'limit' => $limit,
+            'remaining' => max(0, $limit - $used),
+        ];
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();

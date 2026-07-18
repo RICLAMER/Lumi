@@ -99,6 +99,14 @@ button {
     place-items: center;
 }
 
+.app-brand-icon {
+    width: 40px;
+    height: 40px;
+    border: 2px solid rgba(23, 50, 77, 0.35);
+    border-radius: 50%;
+    object-fit: cover;
+}
+
 .app-header-actions {
     display: flex;
     gap: 8px;
@@ -115,6 +123,7 @@ button {
     color: var(--ink);
     place-items: center;
     backdrop-filter: blur(8px);
+    text-decoration: none;
 }
 
 .icon-button:hover {
@@ -498,6 +507,37 @@ button {
     font-size: 13px;
 }
 
+.usage-meter {
+    width: fit-content;
+    margin: 8px 0 0;
+    padding: 6px 9px;
+    border: 1px solid #bfd4dc;
+    border-radius: 6px;
+    background: #edf7fa;
+    color: #31566a;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.usage-meter-light {
+    margin-inline: auto;
+    border-color: rgba(255, 255, 255, 0.34);
+    background: rgba(3, 18, 44, 0.42);
+    color: #e6f4ff;
+}
+
+.usage-meter.is-limit-reached {
+    border-color: #e6a4b9;
+    background: #fff0f4;
+    color: #8e2449;
+}
+
+.usage-meter-light.is-limit-reached {
+    border-color: #ff96b7;
+    background: rgba(95, 15, 48, 0.72);
+    color: #fff;
+}
+
 .flow-actions {
     display: flex;
     gap: 10px;
@@ -526,6 +566,13 @@ button {
 .action-button:disabled {
     cursor: not-allowed;
     opacity: 0.45;
+}
+
+.processing-actions .action-primary:disabled {
+    border-color: #89969c;
+    background: #89969c;
+    color: #e6ebed;
+    opacity: 1;
 }
 
 .action-button svg {
@@ -864,7 +911,7 @@ button {
 
     .discovery-controls {
         height: min(58svh, 530px);
-        padding: 8% 0 12%;
+        padding: 8% 0 32%;
     }
 
     .lumi-character {

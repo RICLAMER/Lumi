@@ -9,18 +9,19 @@ require_once __DIR__ . '/../src/AiService.php';
 require_post();
 require_csrf();
 $user = require_user();
+$language = request_language($user);
 
 try {
     if (!isset($_FILES['audio']) || !is_array($_FILES['audio'])) {
-        json_response(['ok' => false, 'message' => 'Grave uma pergunta antes de enviar.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'record_before_send')], 422);
     }
 
     $upload = $_FILES['audio'];
     if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        json_response(['ok' => false, 'message' => 'Não conseguimos receber a gravação.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'receive_audio_error')], 422);
     }
     if ((int) ($upload['size'] ?? 0) > 8 * 1024 * 1024) {
-        json_response(['ok' => false, 'message' => 'A gravação deve ter no máximo 8 MB.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'audio_max_error')], 422);
     }
 
     $mime = '';
@@ -38,17 +39,22 @@ try {
         'video/mp4', 'audio/ogg', 'audio/wav', 'audio/x-wav',
     ];
     if (!in_array($mime, $allowed, true)) {
-        json_response(['ok' => false, 'message' => 'Esse formato de áudio não é compatível.'], 422);
+        json_response(['ok' => false, 'message' => lumi_t($language, 'audio_format_error')], 422);
     }
 
-    $remaining = reserve_ai_request($user, 'voice');
+    $usage = reserve_ai_request($user, 'voice');
     $result = (new AiService())->answerVoice(
         (string) $upload['tmp_name'],
         $mime,
-        age_group($user['age'])
+        age_group($user['age']),
+        $language
     );
 
-    json_response(['ok' => true, 'result' => $result, 'remaining' => $remaining]);
+    json_response([
+        'ok' => true,
+        'result' => $result,
+        'usage' => array_merge(['type' => 'voice'], $usage),
+    ]);
 } catch (RuntimeException $exception) {
     log_event('voice_analysis_failed', [
         'user_id' => $user['id'],
@@ -64,6 +70,6 @@ try {
     ]);
     json_response([
         'ok' => false,
-        'message' => 'Não consegui ouvir a pergunta agora. Tente novamente em um lugar mais silencioso.',
+        'message' => lumi_t($language, 'voice_analysis_error'),
     ], 500);
 }

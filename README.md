@@ -10,11 +10,13 @@ Lumi is an AI learning companion for children ages 6 to 14. A child can photogra
 - Fixed, verified test account for hackathon reviewers
 - Mobile camera capture and desktop image upload
 - Voice recording, playback, transcription, and submission
-- Age-adapted educational explanations in Brazilian Portuguese
+- Age-adapted educational explanations in English, Brazilian Portuguese, or Spanish
+- Browser-language detection with a manual language selector
 - AI-generated speech synchronized with the Lumi talking video
 - Input and output safety checks for child-appropriate use
-- Daily limits per verified account to reduce automated abuse and API cost
+- Separate daily photo and audio limits per verified account
 - Registration limited to three requests per IP in any five-minute window
+- Tester-only control portal for registration and daily usage limits
 - Temporary processing only: uploaded photos and recordings are not retained
 
 ## OpenAI usage
@@ -38,7 +40,7 @@ Lumi is intentionally strict because its audience includes children.
 
 - The registration form asks for an adult's email and a child-safe display name or nickname.
 - The exact age and display name stay on the Lumi server.
-- Only an age group is sent to OpenAI for response adaptation.
+- Only an age group and preferred language are sent to OpenAI for response adaptation.
 - The display name is spoken locally by the browser before the generated explanation.
 - Images are resized and re-encoded before analysis, removing EXIF metadata.
 - Photos and voice recordings exist only for the duration of the request.
@@ -55,6 +57,7 @@ See the public `privacy.php` page for the user-facing policy.
 - SMTP email verification over TLS
 - Dependency-free OpenAI REST integration through PHP cURL
 - Apache `.htaccess` rules for private source, configuration, and storage paths
+- Database-backed runtime settings managed through `Portal.php`
 
 ## Local setup
 
@@ -85,10 +88,11 @@ Reviewer credentials are provided in the private Devpost submission notes. They 
 - PHP syntax validation across all application files
 - JavaScript syntax validation for landing and app flows
 - Live OpenAI image-analysis and voice-question smoke tests
+- Live multilingual image-analysis and speech smoke test
 - Responsive browser checks at desktop and mobile viewports
 - Production HTTPS, static asset, and protected-path checks
 - Production database initialization and reviewer login
 
 ## Media
 
-The Lumi character artwork, videos, and music in this repository are project assets supplied for the hackathon. The universe background was created with OpenAI image generation for this interface.
+The Lumi character artwork, videos, and music in this repository are project assets supplied for the hackathon. The universe background and square Lumi app icon were created with OpenAI image generation for this interface.

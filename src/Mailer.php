@@ -4,32 +4,70 @@ declare(strict_types=1);
 
 final class Mailer
 {
-    public function sendVerification(string $to, string $displayName, string $verificationUrl): void
+    public function sendVerification(
+        string $to,
+        string $displayName,
+        string $verificationUrl,
+        string $language
+    ): void
     {
-        $subject = 'Confirme seu acesso à Lumi';
+        $language = normalize_language($language);
+        $copy = [
+            'en' => [
+                'subject' => 'Confirm your Lumi access',
+                'heading' => 'A discovery is waiting!',
+                'intro' => 'Hello! Confirm {name}’s account to unlock safe access to Lumi.',
+                'button' => 'Select here to access Lumi',
+                'note' => 'This link is valid for 24 hours. If you did not request this account, ignore this message.',
+                'text' => "Confirm {name}’s account to access Lumi:\n{url}\n\nThis link is valid for 24 hours.",
+            ],
+            'pt' => [
+                'subject' => 'Confirme seu acesso à Lumi',
+                'heading' => 'Uma descoberta está esperando!',
+                'intro' => 'Olá! Confirme o cadastro de {name} para liberar o acesso seguro à Lumi.',
+                'button' => 'Clique aqui para já acessar a Lumi',
+                'note' => 'O link é válido por 24 horas. Se você não solicitou este cadastro, ignore esta mensagem.',
+                'text' => "Confirme o cadastro de {name} para acessar a Lumi:\n{url}\n\nEste link é válido por 24 horas.",
+            ],
+            'es' => [
+                'subject' => 'Confirma tu acceso a Lumi',
+                'heading' => '¡Hay un descubrimiento esperando!',
+                'intro' => '¡Hola! Confirma la cuenta de {name} para liberar el acceso seguro a Lumi.',
+                'button' => 'Haz clic aquí para acceder a Lumi',
+                'note' => 'Este enlace es válido durante 24 horas. Si no solicitaste esta cuenta, ignora este mensaje.',
+                'text' => "Confirma la cuenta de {name} para acceder a Lumi:\n{url}\n\nEste enlace es válido durante 24 horas.",
+            ],
+        ][$language];
+
+        $subject = $copy['subject'];
         $safeName = htmlspecialchars($displayName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $safeUrl = htmlspecialchars($verificationUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $safeIntro = str_replace('{name}', $safeName, $copy['intro']);
+        $locale = language_locale($language);
         $html = <<<HTML
 <!doctype html>
-<html lang="pt-BR">
+<html lang="{$locale}">
 <body style="margin:0;background:#f4fbff;font-family:Arial,sans-serif;color:#17324d">
   <div style="max-width:560px;margin:0 auto;padding:32px 20px">
     <div style="background:#ffffff;border:1px solid #d9edf4;border-radius:16px;padding:30px">
       <p style="font-size:14px;font-weight:700;color:#e94f87;margin:0 0 12px">LUMI</p>
-      <h1 style="font-size:26px;margin:0 0 14px">Uma descoberta está esperando!</h1>
-      <p style="font-size:17px;line-height:1.6">Olá! Confirme o cadastro de {$safeName} para liberar o acesso seguro à Lumi.</p>
+      <h1 style="font-size:26px;margin:0 0 14px">{$copy['heading']}</h1>
+      <p style="font-size:17px;line-height:1.6">{$safeIntro}</p>
       <p style="margin:28px 0">
-        <a href="{$safeUrl}" style="display:inline-block;background:#176b87;color:#fff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:8px">Clique aqui para já acessar a Lumi</a>
+        <a href="{$safeUrl}" style="display:inline-block;background:#176b87;color:#fff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:8px">{$copy['button']}</a>
       </p>
-      <p style="font-size:13px;line-height:1.5;color:#607487">O link é válido por 24 horas. Se você não solicitou este cadastro, ignore esta mensagem.</p>
+      <p style="font-size:13px;line-height:1.5;color:#607487">{$copy['note']}</p>
     </div>
   </div>
 </body>
 </html>
 HTML;
 
-        $text = "Confirme o cadastro de {$displayName} para acessar a Lumi:\n{$verificationUrl}\n\n"
-            . 'Este link é válido por 24 horas.';
+        $text = str_replace(
+            ['{name}', '{url}'],
+            [$displayName, $verificationUrl],
+            $copy['text']
+        );
 
         $this->send($to, $subject, $html, $text);
     }

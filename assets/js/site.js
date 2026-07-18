@@ -1,4 +1,28 @@
 (() => {
+    const language = document.body.dataset.language || 'en';
+    const copy = {
+        en: {
+            serverUnreadable: 'The server response could not be read.',
+            genericError: 'We could not complete that right now.',
+            submitting: 'Just a moment...',
+            networkError: 'I could not connect. Check your internet connection and try again.',
+            resendEmail: 'Enter the email address to resend the confirmation.',
+        },
+        pt: {
+            serverUnreadable: 'A resposta do servidor não pôde ser lida.',
+            genericError: 'Não foi possível concluir agora.',
+            submitting: 'Só um instante...',
+            networkError: 'Não consegui conectar agora. Verifique a internet e tente novamente.',
+            resendEmail: 'Informe o e-mail para reenviar a confirmação.',
+        },
+        es: {
+            serverUnreadable: 'No se pudo leer la respuesta del servidor.',
+            genericError: 'No se pudo completar ahora.',
+            submitting: 'Un momento...',
+            networkError: 'No pude conectarme. Comprueba internet e inténtalo de nuevo.',
+            resendEmail: 'Introduce el correo para reenviar la confirmación.',
+        },
+    }[language] || {};
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     const dialogs = new Map(
         [...document.querySelectorAll('dialog')].map((dialog) => [dialog.id, dialog])
@@ -39,20 +63,25 @@
         });
     });
 
+    document.querySelector('[data-language-select]')?.addEventListener('change', (event) => {
+        event.currentTarget.form?.submit();
+    });
+
     const postJson = async (url, payload) => {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRF-Token': csrf,
+                'X-Lumi-Language': language,
             },
             body: JSON.stringify(payload),
         });
         const data = await response.json().catch(() => ({
             ok: false,
-            message: 'A resposta do servidor não pôde ser lida.',
+            message: copy.serverUnreadable,
         }));
-        if (!response.ok && !data.message) data.message = 'Não foi possível concluir agora.';
+        if (!response.ok && !data.message) data.message = copy.genericError;
         return data;
     };
 
@@ -61,7 +90,7 @@
         if (!submit) return;
         if (!submit.dataset.label) submit.dataset.label = submit.textContent.trim();
         submit.disabled = submitting;
-        submit.textContent = submitting ? 'Só um instante...' : submit.dataset.label;
+        submit.textContent = submitting ? copy.submitting : submit.dataset.label;
     };
 
     const setMessage = (form, message, isSuccess = false) => {
@@ -88,7 +117,7 @@
             const resend = loginForm.querySelector('[data-resend]');
             if (resend) resend.hidden = data.code !== 'email_unverified';
         } catch {
-            setMessage(loginForm, 'Não consegui conectar agora. Verifique a internet e tente novamente.');
+            setMessage(loginForm, copy.networkError);
         } finally {
             setSubmitting(loginForm, false);
         }
@@ -98,7 +127,7 @@
         const button = event.currentTarget;
         const email = loginForm.elements.email.value.trim();
         if (!email) {
-            setMessage(loginForm, 'Informe o e-mail para reenviar a confirmação.');
+            setMessage(loginForm, copy.resendEmail);
             return;
         }
         button.disabled = true;
@@ -124,9 +153,10 @@
             if (data.ok) {
                 registerForm.reset();
                 registerForm.elements.age.value = 8;
+                registerForm.elements.language.value = language;
             }
         } catch {
-            setMessage(registerForm, 'Não consegui conectar agora. Verifique a internet e tente novamente.');
+            setMessage(registerForm, copy.networkError);
         } finally {
             setSubmitting(registerForm, false);
         }
