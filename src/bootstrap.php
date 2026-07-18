@@ -191,45 +191,62 @@ function ensure_schema(PDO $pdo): void
         "SELECT meta_value FROM app_meta WHERE meta_key = 'schema_version'"
     )->fetchColumn();
 
-    if ((int) $version >= 1) {
-        return;
+    if ((int) $version < 1) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS users (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(254) NOT NULL UNIQUE,
+                display_name VARCHAR(40) NOT NULL,
+                age TINYINT UNSIGNED NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                verification_token_hash CHAR(64) NULL UNIQUE,
+                verification_expires_at DATETIME NULL,
+                verified_at DATETIME NULL,
+                is_tester TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_users_verification (verification_token_hash)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS ai_usage (
+                user_id BIGINT UNSIGNED NOT NULL,
+                usage_date DATE NOT NULL,
+                total_requests SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+                image_requests SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+                voice_requests SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, usage_date),
+                CONSTRAINT fk_ai_usage_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $statement = $pdo->prepare(
+            "INSERT INTO app_meta (meta_key, meta_value) VALUES ('schema_version', '1')
+             ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
+        );
+        $statement->execute();
+        $version = 1;
     }
 
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS users (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(254) NOT NULL UNIQUE,
-            display_name VARCHAR(40) NOT NULL,
-            age TINYINT UNSIGNED NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            verification_token_hash CHAR(64) NULL UNIQUE,
-            verification_expires_at DATETIME NULL,
-            verified_at DATETIME NULL,
-            is_tester TINYINT(1) NOT NULL DEFAULT 0,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_users_verification (verification_token_hash)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-    );
+    if ((int) $version < 2) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS registration_attempts (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                ip_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+                attempted_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                INDEX idx_registration_attempts_ip_time (ip_hash, attempted_at),
+                INDEX idx_registration_attempts_time (attempted_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
 
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS ai_usage (
-            user_id BIGINT UNSIGNED NOT NULL,
-            usage_date DATE NOT NULL,
-            total_requests SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            image_requests SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            voice_requests SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (user_id, usage_date),
-            CONSTRAINT fk_ai_usage_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
-    );
-
-    $statement = $pdo->prepare(
-        "INSERT INTO app_meta (meta_key, meta_value) VALUES ('schema_version', '1')
-         ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
-    );
-    $statement->execute();
+        $statement = $pdo->prepare(
+            "INSERT INTO app_meta (meta_key, meta_value) VALUES ('schema_version', '2')
+             ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
+        );
+        $statement->execute();
+    }
 }
 
 function ensure_tester(PDO $pdo): void
@@ -378,4 +395,67 @@ function client_fingerprint(): string
 {
     $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
     return hash_hmac('sha256', $ip, (string) env('APP_KEY', 'lumi'));
+}
+
+function consume_registration_attempt(PDO $pdo, int $limit = 3, int $windowSeconds = 300): array
+{
+    $limit = max(1, min(20, $limit));
+    $windowSeconds = max(60, min(3600, $windowSeconds));
+    $ipHash = client_fingerprint();
+    $lockName = 'lumi_registration_' . substr($ipHash, 0, 40);
+
+    $lock = $pdo->prepare('SELECT GET_LOCK(:lock_name, 3)');
+    $lock->execute(['lock_name' => $lockName]);
+    if ((int) $lock->fetchColumn() !== 1) {
+        return ['allowed' => false, 'retry_after' => 5];
+    }
+
+    try {
+        $windowStart = "DATE_SUB(NOW(6), INTERVAL {$windowSeconds} SECOND)";
+        $statement = $pdo->prepare(
+            "SELECT COUNT(*) AS attempt_count,
+                    COALESCE(TIMESTAMPDIFF(SECOND, MIN(attempted_at), NOW(6)), 0) AS oldest_age
+             FROM registration_attempts
+             WHERE ip_hash = :ip_hash AND attempted_at > {$windowStart}"
+        );
+        $statement->execute(['ip_hash' => $ipHash]);
+        $usage = $statement->fetch() ?: [];
+        $attemptCount = (int) ($usage['attempt_count'] ?? 0);
+
+        if ($attemptCount >= $limit) {
+            $oldestAge = (int) ($usage['oldest_age'] ?? 0);
+            return [
+                'allowed' => false,
+                'retry_after' => max(1, $windowSeconds - $oldestAge),
+            ];
+        }
+
+        $statement = $pdo->prepare(
+            'INSERT INTO registration_attempts (ip_hash) VALUES (:ip_hash)'
+        );
+        $statement->execute(['ip_hash' => $ipHash]);
+
+        if (random_int(1, 100) === 1) {
+            try {
+                $pdo->exec(
+                    'DELETE FROM registration_attempts
+                     WHERE attempted_at < DATE_SUB(NOW(6), INTERVAL 1 DAY)
+                     LIMIT 1000'
+                );
+            } catch (Throwable $exception) {
+                log_event('registration_attempt_cleanup_failed', [
+                    'exception' => $exception::class,
+                ]);
+            }
+        }
+
+        return [
+            'allowed' => true,
+            'retry_after' => 0,
+            'remaining' => max(0, $limit - $attemptCount - 1),
+        ];
+    } finally {
+        $release = $pdo->prepare('SELECT RELEASE_LOCK(:lock_name)');
+        $release->execute(['lock_name' => $lockName]);
+    }
 }

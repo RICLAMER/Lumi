@@ -14,6 +14,7 @@ Lumi is an AI learning companion for children ages 6 to 14. A child can photogra
 - AI-generated speech synchronized with the Lumi talking video
 - Input and output safety checks for child-appropriate use
 - Daily limits per verified account to reduce automated abuse and API cost
+- Registration limited to three requests per IP in any five-minute window
 - Temporary processing only: uploaded photos and recordings are not retained
 
 ## OpenAI usage
@@ -86,8 +87,7 @@ Reviewer credentials are provided in the private Devpost submission notes. They 
 - Live OpenAI image-analysis and voice-question smoke tests
 - Responsive browser checks at desktop and mobile viewports
 - Production HTTPS, static asset, and protected-path checks
-
-The final production authentication smoke test requires the hosting database user to be granted access to the application database in cPanel.
+- Production database initialization and reviewer login
 
 ## Media
 

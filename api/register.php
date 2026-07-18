@@ -13,6 +13,28 @@ if (!empty($input['website'])) {
     json_response(['ok' => true, 'message' => 'Confira seu e-mail para continuar.']);
 }
 
+try {
+    $pdo = db();
+    $registrationLimit = consume_registration_attempt($pdo);
+} catch (Throwable $exception) {
+    log_event('registration_rate_limit_failed', ['exception' => $exception::class]);
+    json_response([
+        'ok' => false,
+        'message' => 'Não conseguimos iniciar o cadastro agora. Tente novamente em instantes.',
+    ], 500);
+}
+
+if (!$registrationLimit['allowed']) {
+    $retryAfter = (int) $registrationLimit['retry_after'];
+    header('Retry-After: ' . $retryAfter);
+    json_response([
+        'ok' => false,
+        'code' => 'registration_rate_limited',
+        'retry_after' => $retryAfter,
+        'message' => 'Muitas tentativas de cadastro. Aguarde alguns minutos e tente novamente.',
+    ], 429);
+}
+
 $lastRegistration = (int) ($_SESSION['last_registration_at'] ?? 0);
 if ($lastRegistration > time() - 45) {
     json_response(['ok' => false, 'message' => 'Aguarde um pouquinho antes de tentar novamente.'], 429);
@@ -45,7 +67,6 @@ if (!$consent) {
 }
 
 try {
-    $pdo = db();
     $statement = $pdo->prepare('SELECT id, verified_at FROM users WHERE email = :email LIMIT 1');
     $statement->execute(['email' => $email]);
     $existing = $statement->fetch();
