@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="title">
+  <title id="title">Microfone</title>
+  <circle cx="120" cy="120" r="116" fill="#27272a"/>
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="91" y="49" width="58" height="102" rx="29" fill="#fff" stroke="none"/>
+    <path d="M73 119v7c0 28 20 49 47 49s47-21 47-49v-7" stroke-width="8"/>
+    <path d="M120 175v24M96 200h48" stroke-width="8"/>
+    <path d="M31 116v8M45 109v22M59 101v38M73 108v24M209 116v8M195 109v22M181 101v38M167 108v24" stroke-width="7"/>
+    <path d="M17 120h3M220 120h3" stroke-width="7"/>
+  </g>
+</svg>
