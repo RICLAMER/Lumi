@@ -39,8 +39,6 @@ unset($_SESSION['flash']);
 </head>
 <body
     class="lumi-app"
-    data-user-name="<?= $h((string) $user['display_name']) ?>"
-    data-user-age="<?= (int) $user['age'] ?>"
     data-user-language="<?= $h($language) ?>"
 >
     <a class="skip-link" href="#lumi-stage"><?= $h($t('skip_discovery')) ?></a>
@@ -56,6 +54,16 @@ unset($_SESSION['flash']);
                     <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a2 2 0 0 0 .4 2.2l.1.1-2.6 2.6-.1-.1A2 2 0 0 0 15 19.4a2 2 0 0 0-1.2 1.8V21h-3.6v-.2A2 2 0 0 0 9 19.4a2 2 0 0 0-2.2.4l-.1.1-2.6-2.6.1-.1A2 2 0 0 0 4.6 15a2 2 0 0 0-1.8-1.2H2v-3.6h.8A2 2 0 0 0 4.6 9a2 2 0 0 0-.4-2.2l-.1-.1 2.6-2.6.1.1A2 2 0 0 0 9 4.6a2 2 0 0 0 1.2-1.8V2h3.6v.8A2 2 0 0 0 15 4.6a2 2 0 0 0 2.2-.4l.1-.1 2.6 2.6-.1.1A2 2 0 0 0 19.4 9a2 2 0 0 0 1.8 1.2h.8v3.6h-.8A2 2 0 0 0 19.4 15z"/></svg>
                 </a>
             <?php endif; ?>
+            <label class="app-language-picker" title="<?= $h($t('language_label')) ?>">
+                <span class="sr-only"><?= $h($t('language_label')) ?></span>
+                <select data-app-language aria-label="<?= $h($t('language_label')) ?>">
+                    <?php foreach (supported_languages() as $optionLanguage): ?>
+                        <option value="<?= $h($optionLanguage) ?>"<?= $optionLanguage === $language ? ' selected' : '' ?>>
+                            <?= strtoupper($h($optionLanguage)) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
             <button class="icon-button" type="button" data-music-toggle aria-label="<?= $h($t('pause_music')) ?>" title="<?= $h($t('pause_music')) ?>">
                 <svg class="icon-sound-on" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM17 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></svg>
                 <svg class="icon-sound-off" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM17 10l5 5M22 10l-5 5"/></svg>

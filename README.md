@@ -39,9 +39,9 @@ The project was designed and implemented with Codex. GPT-5.6 is also used direct
 Lumi is intentionally strict because its audience includes children.
 
 - The registration form asks for an adult's email and a child-safe display name or nickname.
-- The exact age and display name stay on the Lumi server.
-- Only an age group and preferred language are sent to OpenAI for response adaptation.
-- The display name is spoken locally by the browser before the generated explanation.
+- The exact age stays on the Lumi server.
+- Only an age group and preferred language are used for response adaptation.
+- The display name is excluded from reasoning, vision, and transcription prompts. It is added only to the final text-to-speech request so the greeting and explanation use one consistent voice.
 - Images are resized and re-encoded before analysis, removing EXIF metadata.
 - Photos and voice recordings exist only for the duration of the request.
 - Unsafe inputs, unsafe model outputs, and high-risk topics use a pre-generated refusal response.
@@ -53,7 +53,7 @@ See the public `privacy.php` page for the user-facing policy.
 
 - PHP 8.1+ server-rendered pages and JSON endpoints
 - MySQL 5.7+/MariaDB with automatic schema initialization
-- Native browser Camera, MediaRecorder, Speech Synthesis, and Dialog APIs
+- Native browser Camera, MediaRecorder, and Dialog APIs
 - SMTP email verification over TLS
 - Dependency-free OpenAI REST integration through PHP cURL
 - Apache `.htaccess` rules for private source, configuration, and storage paths

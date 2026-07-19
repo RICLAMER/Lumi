@@ -19,7 +19,7 @@ $copy = [
         'sections' => [
             ['Account data', 'We keep the caregiver email, a first name or nickname for the child, age, preferred language, protected password and account confirmation status. We do not request a full name, school, phone, address or location.'],
             ['Photos and recordings', 'Photos and audio are processed only during a discovery. The photo is resized and recreated before analysis, removing metadata such as location. Lumi does not save these files after the response.'],
-            ['Artificial intelligence', 'To reduce children’s data exposure, we send OpenAI only the age group, preferred language, question or image needed for the explanation. The name and exact age are not sent. The browser speaks the name locally.'],
+            ['Artificial intelligence', 'To reduce children’s data exposure, image analysis and educational reasoning receive only the age group, preferred language, question or image needed for the explanation. The first name or nickname is added only to the final text-to-speech request so one consistent voice can say the greeting and explanation. The exact age is not sent.'],
             ['Appropriate content', 'Inputs and responses pass through safety filters. Lumi refuses topics that could put a child’s physical or moral safety at risk and encourages talking to a trusted adult when needed.'],
             ['Responsible use', 'Access requires a confirmed email. Separate daily limits apply to photos and audio questions, and account requests are limited by a protected hash of the IP address. Lumi is an educational tool and does not replace caregivers, teachers, doctors or emergency services.'],
         ],
@@ -34,7 +34,7 @@ $copy = [
         'sections' => [
             ['Dados do cadastro', 'Guardamos o e-mail do responsável, um nome ou apelido para a criança, a idade, o idioma preferido, a senha protegida e o estado de confirmação da conta. Não pedimos nome completo, escola, telefone, endereço ou localização.'],
             ['Fotos e gravações', 'Fotos e áudios são processados somente durante a descoberta. A foto é redimensionada e recriada antes da análise, removendo metadados como localização. Esses arquivos não são salvos pela Lumi depois da resposta.'],
-            ['Uso da inteligência artificial', 'Para reduzir a exposição de dados infantis, enviamos à OpenAI apenas a faixa etária, o idioma preferido, a pergunta ou a imagem necessária para a explicação. O nome e a idade exata não são enviados. O nome é pronunciado localmente pelo navegador.'],
+            ['Uso da inteligência artificial', 'Para reduzir a exposição de dados infantis, a análise da imagem e o raciocínio educativo recebem apenas a faixa etária, o idioma preferido, a pergunta ou a imagem necessária. O nome ou apelido é acrescentado somente à solicitação final de texto para voz, permitindo que uma única voz diga a saudação e a explicação. A idade exata não é enviada.'],
             ['Conteúdo apropriado', 'Entradas e respostas passam por filtros de segurança. A Lumi recusa temas que possam colocar a segurança física ou moral da criança em risco e orienta a procurar um adulto de confiança quando necessário.'],
             ['Uso responsável', 'O acesso exige e-mail confirmado. Há limites diários separados para fotos e perguntas de áudio, e as solicitações de cadastro são limitadas por um hash protegido do IP. A Lumi é uma ferramenta educacional e não substitui responsáveis, professores, médicos ou serviços de emergência.'],
         ],
@@ -49,7 +49,7 @@ $copy = [
         'sections' => [
             ['Datos de la cuenta', 'Guardamos el correo del responsable, un nombre o apodo del niño, la edad, el idioma preferido, la contraseña protegida y el estado de confirmación. No pedimos nombre completo, escuela, teléfono, dirección ni ubicación.'],
             ['Fotos y grabaciones', 'Las fotos y los audios se procesan solo durante el descubrimiento. La foto se redimensiona y se recrea antes del análisis, eliminando metadatos como la ubicación. Lumi no guarda estos archivos después de responder.'],
-            ['Inteligencia artificial', 'Para reducir la exposición de datos infantiles, enviamos a OpenAI solo el grupo de edad, el idioma preferido, la pregunta o la imagen necesaria. No se envían el nombre ni la edad exacta. El navegador pronuncia el nombre localmente.'],
+            ['Inteligencia artificial', 'Para reducir la exposición de datos infantiles, el análisis de imágenes y el razonamiento educativo reciben solo el grupo de edad, el idioma preferido, la pregunta o la imagen necesaria. El nombre o apodo se añade únicamente a la solicitud final de texto a voz, para que una sola voz diga el saludo y la explicación. No se envía la edad exacta.'],
             ['Contenido apropiado', 'Las entradas y respuestas pasan por filtros de seguridad. Lumi rechaza temas que puedan poner en riesgo la seguridad física o moral del niño y recomienda hablar con un adulto de confianza cuando sea necesario.'],
             ['Uso responsable', 'El acceso requiere un correo confirmado. Hay límites diarios separados para fotos y preguntas de audio, y las solicitudes de registro se limitan mediante un hash protegido de la IP. Lumi es una herramienta educativa y no sustituye a responsables, profesores, médicos ni servicios de emergencia.'],
         ],

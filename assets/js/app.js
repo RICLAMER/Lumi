@@ -2,10 +2,9 @@
     const body = document.body;
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     const language = body.dataset.userLanguage || 'en';
-    const locale = { en: 'en-US', pt: 'pt-BR', es: 'es-ES' }[language] || 'en-US';
     const copy = {
         en: {
-            explorer: 'explorer', pauseMusic: 'Pause music', playMusic: 'Play music',
+            pauseMusic: 'Pause music', playMusic: 'Play music',
             cameraError: 'I could not open the camera. You can still choose an image from the gallery.',
             photoSize: 'The photo must be no larger than 8 MB.',
             responseUnreadable: 'Lumi’s response could not be read.',
@@ -27,6 +26,7 @@
             recording: 'I’m listening... tap again to finish.',
             microphoneError: 'I could not use the microphone. Allow access and try again.',
             audioError: 'Tap Repeat to hear the explanation.',
+            languageError: 'I could not change the language right now.',
             discovery: 'Lumi discovery', safety: 'Lumi safety',
             discoverySubject: 'Discovery: {category}', curiosityDefault: 'curiosity',
             school: 'Subject: {value}', curiosity: 'Fun fact: {value}',
@@ -36,7 +36,7 @@
             },
         },
         pt: {
-            explorer: 'explorador', pauseMusic: 'Pausar música', playMusic: 'Tocar música',
+            pauseMusic: 'Pausar música', playMusic: 'Tocar música',
             cameraError: 'Não consegui abrir a câmera. Você ainda pode escolher uma imagem da galeria.',
             photoSize: 'A foto precisa ter no máximo 8 MB.',
             responseUnreadable: 'A resposta da Lumi não pôde ser lida.',
@@ -58,6 +58,7 @@
             recording: 'Estou ouvindo... toque novamente para terminar.',
             microphoneError: 'Não consegui usar o microfone. Libere a permissão e tente novamente.',
             audioError: 'Toque em Repetir para ouvir a explicação.',
+            languageError: 'Não consegui alterar o idioma agora.',
             discovery: 'Descoberta da Lumi', safety: 'Segurança da Lumi',
             discoverySubject: 'Descoberta: {category}', curiosityDefault: 'curiosidade',
             school: 'Matéria: {value}', curiosity: 'Curiosidade: {value}',
@@ -67,7 +68,7 @@
             },
         },
         es: {
-            explorer: 'explorador', pauseMusic: 'Pausar música', playMusic: 'Reproducir música',
+            pauseMusic: 'Pausar música', playMusic: 'Reproducir música',
             cameraError: 'No pude abrir la cámara. Aún puedes elegir una imagen de la galería.',
             photoSize: 'La foto debe tener un máximo de 8 MB.',
             responseUnreadable: 'No se pudo leer la respuesta de Lumi.',
@@ -89,6 +90,7 @@
             recording: 'Estoy escuchando... toca otra vez para terminar.',
             microphoneError: 'No pude usar el micrófono. Permite el acceso e inténtalo de nuevo.',
             audioError: 'Toca Repetir para escuchar la explicación.',
+            languageError: 'No pude cambiar el idioma ahora.',
             discovery: 'Descubrimiento de Lumi', safety: 'Seguridad de Lumi',
             discoverySubject: 'Descubrimiento: {category}', curiosityDefault: 'curiosidad',
             school: 'Materia: {value}', curiosity: 'Curiosidad: {value}',
@@ -100,8 +102,6 @@
     }[language];
     const formatCopy = (template, values = {}) => Object.entries(values)
         .reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
-    const userName = body.dataset.userName || copy.explorer;
-    const userAge = Number(body.dataset.userAge || 8);
 
     const music = document.querySelector('[data-background-music]');
     const musicToggle = document.querySelector('[data-music-toggle]');
@@ -185,6 +185,37 @@
     if (toast?.classList.contains('is-visible')) {
         window.setTimeout(() => toast.classList.remove('is-visible'), 5500);
     }
+
+    const languageSelect = document.querySelector('[data-app-language]');
+    languageSelect?.addEventListener('change', async () => {
+        const nextLanguage = languageSelect.value;
+        if (nextLanguage === language) return;
+
+        languageSelect.disabled = true;
+        try {
+            const response = await fetch('api/update-language.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrf,
+                    'X-Lumi-Language': language,
+                },
+                body: JSON.stringify({ language: nextLanguage }),
+            });
+            const data = await response.json().catch(() => ({
+                ok: false,
+                message: copy.languageError,
+            }));
+            if (!response.ok || !data.ok) {
+                throw new Error(data.message || copy.languageError);
+            }
+            window.location.assign(data.redirect || 'app.php');
+        } catch (error) {
+            languageSelect.disabled = false;
+            languageSelect.value = language;
+            showToast(error.message || copy.languageError);
+        }
+    });
 
     const cameraVideo = document.querySelector('[data-camera-video]');
     const cameraEmpty = document.querySelector('[data-camera-empty]');
@@ -552,7 +583,6 @@
     const explanationCuriosity = document.querySelector('[data-explanation-curiosity]');
 
     const stopExplanationAudio = () => {
-        window.speechSynthesis?.cancel();
         explanationAudio.pause();
         explanationAudio.currentTime = 0;
     };
@@ -561,28 +591,10 @@
         if (!pendingResult) return;
         stopExplanationAudio();
         explanationAudio.src = pendingResult.audio_data_url || pendingResult.audio_url || '';
-
-        let audioStarted = false;
-        const startAudio = () => {
-            if (audioStarted || !explanationAudio.src) return;
-            audioStarted = true;
-            explanationAudio.play().catch(() => {
-                showToast(copy.audioError);
-            });
-        };
-
-        if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
-            const greeting = new SpeechSynthesisUtterance(`${userName},`);
-            greeting.lang = locale;
-            greeting.rate = userAge <= 8 ? 0.86 : 0.94;
-            greeting.pitch = 1.08;
-            greeting.onend = startAudio;
-            greeting.onerror = startAudio;
-            window.speechSynthesis.speak(greeting);
-            window.setTimeout(startAudio, 2200);
-        } else {
-            startAudio();
-        }
+        if (!explanationAudio.src) return;
+        explanationAudio.play().catch(() => {
+            showToast(copy.audioError);
+        });
     };
 
     const fillExplanation = () => {

@@ -11,7 +11,12 @@ final class AiService
         $this->client = new OpenAIClient();
     }
 
-    public function analyzeImage(string $jpegBytes, string $ageGroup, string $language): array
+    public function analyzeImage(
+        string $jpegBytes,
+        string $ageGroup,
+        string $language,
+        string $displayName
+    ): array
     {
         $language = normalize_language($language);
         $dataUrl = 'data:image/jpeg;base64,' . base64_encode($jpegBytes);
@@ -39,14 +44,15 @@ final class AiService
             ],
         ]);
 
-        return $this->finalize($result, $ageGroup, $language);
+        return $this->finalize($result, $ageGroup, $language, $displayName);
     }
 
     public function answerVoice(
         string $audioPath,
         string $mimeType,
         string $ageGroup,
-        string $language
+        string $language,
+        string $displayName
     ): array
     {
         $language = normalize_language($language);
@@ -72,7 +78,7 @@ final class AiService
         ]);
 
         $result['transcript'] = $transcript;
-        return $this->finalize($result, $ageGroup, $language);
+        return $this->finalize($result, $ageGroup, $language, $displayName);
     }
 
     private function basePrompt(string $ageGroup, string $language): string
@@ -92,7 +98,7 @@ final class AiService
         return "You are Lumi, an explorer kitten and educational companion for children.\n"
             . "The explanation is for ages {$ageGroup}. {$length}\n"
             . "Write every user-facing field in {$outputLanguage}, with a warm, curious, clear and respectful tone.\n"
-            . "Do not include the child's name because the app will greet them locally.\n"
+            . "Do not include the child's name because the server adds a short greeting before speech generation.\n"
             . "Do not ask for a full name, address, school, phone, location or other personal data.\n"
             . "Do not identify people in images or infer sensitive traits.\n"
             . "Praise curiosity, but do not invent facts or validate incorrect claims.\n"
@@ -168,7 +174,12 @@ final class AiService
         throw new RuntimeException('A Lumi não encontrou uma explicação na resposta.');
     }
 
-    private function finalize(array $result, string $ageGroup, string $language): array
+    private function finalize(
+        array $result,
+        string $ageGroup,
+        string $language,
+        string $displayName
+    ): array
     {
         $spokenText = trim((string) ($result['spoken_text'] ?? ''));
         if (($result['decision'] ?? 'refuse') !== 'safe' || $spokenText === '') {
@@ -177,6 +188,7 @@ final class AiService
         if ($this->textIsUnsafe($spokenText)) {
             return $this->refusal($language, $result['transcript'] ?? null);
         }
+        $spokenText = $this->spokenGreeting($displayName, $language) . $spokenText;
 
         $audio = $this->client->binary('audio/speech', [
             'model' => (string) env('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
@@ -198,6 +210,20 @@ final class AiService
             'transcript' => $result['transcript'] ?? null,
             'audio_data_url' => 'data:audio/mpeg;base64,' . base64_encode($audio),
         ];
+    }
+
+    private function spokenGreeting(string $displayName, string $language): string
+    {
+        $displayName = preg_replace('/\s+/u', ' ', trim($displayName)) ?: '';
+        if ($displayName === '') {
+            return '';
+        }
+
+        return match (normalize_language($language)) {
+            'pt' => "Oi, {$displayName}! ",
+            'es' => "¡Hola, {$displayName}! ",
+            default => "Hi, {$displayName}! ",
+        };
     }
 
     private function voiceInstructions(string $ageGroup, string $language): string

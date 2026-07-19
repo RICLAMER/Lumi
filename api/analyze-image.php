@@ -60,7 +60,8 @@ try {
     $result = (new AiService())->analyzeImage(
         $cleanJpeg,
         age_group($user['age']),
-        $language
+        $language,
+        (string) $user['display_name']
     );
 
     json_response([

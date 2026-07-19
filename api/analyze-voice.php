@@ -47,7 +47,8 @@ try {
         (string) $upload['tmp_name'],
         $mime,
         age_group($user['age']),
-        $language
+        $language,
+        (string) $user['display_name']
     );
 
     json_response([
