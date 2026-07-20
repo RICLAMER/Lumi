@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     version="1.2"
+     baseProfile="tiny-ps"
+     viewBox="0 0 512 512">
+  <title>Lumi</title>
+  <desc>Pink explorer cat mascot on a blue circular badge.</desc>
+
+  <circle cx="256" cy="256" r="252" fill="#079fe3"/>
+  <circle cx="256" cy="256" r="238" fill="#ff7f86"/>
+  <circle cx="256" cy="256" r="222" fill="#08a9ee"/>
+
+  <path d="M91 222L116 87Q121 60 146 79L223 142Z" fill="#f45879"/>
+  <path d="M421 222L396 87Q391 60 366 79L289 142Z" fill="#376be0"/>
+  <path d="M119 181L134 113L190 157Z" fill="#ffc7d5"/>
+  <path d="M393 181L378 113L322 157Z" fill="#ff87a4"/>
+
+  <path d="M105 281Q105 156 256 150Q407 156 407 281Q407 425 256 438Q105 425 105 281Z"
+        fill="#f77591"/>
+  <path d="M127 290Q129 181 256 176Q383 181 385 290Q382 404 256 416Q130 404 127 290Z"
+        fill="#ff91a7"/>
+  <path d="M170 361Q256 393 342 361Q326 420 256 425Q186 420 170 361Z"
+        fill="#ffd4dc"/>
+
+  <path d="M135 190Q151 85 256 70Q361 85 377 190Z" fill="#e6a94e"/>
+  <path d="M159 174Q180 105 256 96Q332 105 353 174Z" fill="#f2bd65"/>
+  <path d="M151 155Q256 129 361 155L365 180Q256 153 147 180Z" fill="#58413c"/>
+  <path d="M88 201Q256 149 424 201Q432 207 423 217Q256 174 89 217Q80 208 88 201Z"
+        fill="#f6c770"/>
+  <circle cx="326" cy="145" r="34" fill="#f7d48b"/>
+  <circle cx="326" cy="145" r="27" fill="#477a43"/>
+  <ellipse cx="326" cy="158" rx="13" ry="10" fill="#ffe7ae"/>
+  <circle cx="310" cy="141" r="6" fill="#ffe7ae"/>
+  <circle cx="321" cy="132" r="6" fill="#ffe7ae"/>
+  <circle cx="334" cy="132" r="6" fill="#ffe7ae"/>
+  <circle cx="344" cy="142" r="6" fill="#ffe7ae"/>
+
+  <path d="M154 267Q189 231 224 270Q202 248 174 270Z" fill="#73343f"/>
+  <path d="M288 270Q323 231 358 267Q338 248 308 270Z" fill="#73343f"/>
+
+  <ellipse cx="190" cy="306" rx="53" ry="64" fill="#fff8f5"/>
+  <ellipse cx="322" cy="306" rx="53" ry="64" fill="#fff8f5"/>
+  <ellipse cx="197" cy="314" rx="34" ry="44" fill="#167eb3"/>
+  <ellipse cx="315" cy="314" rx="34" ry="44" fill="#167eb3"/>
+  <ellipse cx="202" cy="319" rx="22" ry="32" fill="#101923"/>
+  <ellipse cx="310" cy="319" rx="22" ry="32" fill="#101923"/>
+  <circle cx="211" cy="302" r="9" fill="#ffffff"/>
+  <circle cx="319" cy="302" r="9" fill="#ffffff"/>
+  <circle cx="193" cy="332" r="4" fill="#65d9ff"/>
+  <circle cx="301" cy="332" r="4" fill="#65d9ff"/>
+
+  <path d="M240 354Q256 343 272 354Q269 370 256 373Q243 370 240 354Z" fill="#e64968"/>
+  <path d="M256 372Q247 386 229 381M256 372Q265 386 283 381"
+        fill="none" stroke="#843847" stroke-width="5" stroke-linecap="round"/>
+
+  <path d="M144 359L88 350M146 372L84 376M368 359L424 350M366 372L428 376"
+        fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+</svg>
