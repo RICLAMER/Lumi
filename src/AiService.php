@@ -81,6 +81,61 @@ final class AiService
         return $this->finalize($result, $ageGroup, $language, $displayName);
     }
 
+    public function helpWithHomework(
+        string $jpegBytes,
+        string $questionText,
+        ?string $audioPath,
+        ?string $audioMimeType,
+        string $ageGroup,
+        string $language,
+        string $displayName
+    ): array {
+        $language = normalize_language($language);
+        $dataUrl = 'data:image/jpeg;base64,' . base64_encode($jpegBytes);
+        if ($this->imageIsUnsafe($dataUrl)) {
+            return $this->homeworkRefusal($language);
+        }
+
+        $questionText = trim($questionText);
+        if ($audioPath && $audioMimeType) {
+            $transcript = $this->transcribe($audioPath, $audioMimeType, $language);
+            if ($transcript === '' || $this->textIsUnsafe($transcript)) {
+                return $this->homeworkRefusal($language, $transcript);
+            }
+            $questionText = trim($questionText . "\n" . $transcript);
+        }
+        if ($questionText === '') {
+            $questionText = match ($language) {
+                'pt' => 'Explique esta lição de forma simples e me ajude a responder.',
+                'es' => 'Explica esta tarea de forma sencilla y ayúdame a responder.',
+                default => 'Please explain this homework simply and help me answer it.',
+            };
+        }
+        if ($this->textIsUnsafe($questionText)) {
+            return $this->homeworkRefusal($language, $questionText);
+        }
+
+        $prompt = $this->basePrompt($ageGroup, $language) . "\n\n"
+            . "Homework help task:\n"
+            . "- Read the homework page in the image and use the child's question: {$questionText}\n"
+            . "- Help the child understand the exercise, then give a concise answer only when the page is readable.\n"
+            . "- Never pretend to read words, numbers, diagrams or instructions that are unclear. Ask for a clearer photo instead.\n"
+            . "- Explain the reasoning in a kind teaching voice. Do not shame the child and do not encourage copying without understanding.\n"
+            . "- Refuse content involving sexual, violent, illegal, dangerous, self-harm, drugs, weapons, private data, medical emergencies, or any physical or moral risk to a child.";
+
+        $result = $this->createHomeworkAnswer([
+            [
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'input_text', 'text' => $prompt],
+                    ['type' => 'input_image', 'image_url' => $dataUrl, 'detail' => 'high'],
+                ],
+            ],
+        ]);
+        $result['transcript'] = $questionText;
+        return $this->finalizeHomework($result, $ageGroup, $language, $displayName);
+    }
+
     private function basePrompt(string $ageGroup, string $language): string
     {
         $length = match ($ageGroup) {
@@ -154,6 +209,48 @@ final class AiService
         return $result;
     }
 
+    private function createHomeworkAnswer(array $input): array
+    {
+        $schema = [
+            'type' => 'object',
+            'properties' => [
+                'decision' => ['type' => 'string', 'enum' => ['safe', 'refuse']],
+                'title' => ['type' => 'string'],
+                'answer_text' => ['type' => 'string'],
+                'teaching_text' => ['type' => 'string'],
+                'spoken_text' => ['type' => 'string'],
+                'school_subject' => ['type' => 'string'],
+                'safety_note' => ['type' => 'string'],
+            ],
+            'required' => [
+                'decision', 'title', 'answer_text', 'teaching_text', 'spoken_text',
+                'school_subject', 'safety_note',
+            ],
+            'additionalProperties' => false,
+        ];
+
+        $response = $this->client->json('responses', [
+            'model' => (string) env('OPENAI_MODEL', 'gpt-5.6-luna'),
+            'input' => $input,
+            'reasoning' => ['effort' => 'low'],
+            'max_output_tokens' => 1200,
+            'text' => [
+                'format' => [
+                    'type' => 'json_schema',
+                    'name' => 'lumi_homework_help',
+                    'strict' => true,
+                    'schema' => $schema,
+                ],
+            ],
+        ]);
+
+        $result = json_decode($this->extractOutputText($response), true);
+        if (!is_array($result) || !isset($result['decision'], $result['answer_text'], $result['spoken_text'])) {
+            throw new RuntimeException('A Lumi não conseguiu organizar a ajuda da lição.');
+        }
+        return $result;
+    }
+
     private function extractOutputText(array $response): string
     {
         if (isset($response['output_text']) && is_string($response['output_text'])) {
@@ -206,6 +303,43 @@ final class AiService
             'summary' => trim((string) $result['summary']),
             'school_subject' => trim((string) $result['school_subject']),
             'curiosity' => trim((string) $result['curiosity']),
+            'safety_note' => trim((string) $result['safety_note']),
+            'transcript' => $result['transcript'] ?? null,
+            'audio_data_url' => 'data:audio/mpeg;base64,' . base64_encode($audio),
+        ];
+    }
+
+    private function finalizeHomework(
+        array $result,
+        string $ageGroup,
+        string $language,
+        string $displayName
+    ): array {
+        $spokenText = trim((string) ($result['spoken_text'] ?? ''));
+        $answerText = trim((string) ($result['answer_text'] ?? ''));
+        if (($result['decision'] ?? 'refuse') !== 'safe' || $spokenText === '' || $answerText === '') {
+            return $this->homeworkRefusal($language, $result['transcript'] ?? null);
+        }
+        if ($this->textIsUnsafe($spokenText) || $this->textIsUnsafe($answerText)) {
+            return $this->homeworkRefusal($language, $result['transcript'] ?? null);
+        }
+
+        $spokenText = $this->spokenGreeting($displayName, $language) . $spokenText;
+        $audio = $this->client->binary('audio/speech', [
+            'model' => (string) env('OPENAI_TTS_MODEL', 'gpt-4o-mini-tts'),
+            'voice' => (string) env('OPENAI_TTS_VOICE', 'marin'),
+            'input' => $spokenText,
+            'instructions' => $this->voiceInstructions($ageGroup, $language),
+            'response_format' => 'mp3',
+        ]);
+
+        return [
+            'blocked' => false,
+            'title' => trim((string) $result['title']),
+            'answer_text' => $answerText,
+            'teaching_text' => trim((string) $result['teaching_text']),
+            'spoken_text' => $spokenText,
+            'school_subject' => trim((string) $result['school_subject']),
             'safety_note' => trim((string) $result['safety_note']),
             'transcript' => $result['transcript'] ?? null,
             'audio_data_url' => 'data:audio/mpeg;base64,' . base64_encode($audio),
@@ -331,6 +465,22 @@ final class AiService
             'safety_note' => lumi_t($language, 'refusal_note'),
             'transcript' => $transcript,
             'audio_url' => 'assets/audio/refusal-' . $language . '.mp3',
+        ];
+    }
+
+    private function homeworkRefusal(string $language, ?string $transcript = null): array
+    {
+        $refusal = $this->refusal($language, $transcript);
+        return [
+            'blocked' => true,
+            'title' => $refusal['title'],
+            'answer_text' => $refusal['summary'],
+            'teaching_text' => $refusal['spoken_text'],
+            'spoken_text' => $refusal['spoken_text'],
+            'school_subject' => '',
+            'safety_note' => $refusal['safety_note'],
+            'transcript' => $transcript,
+            'audio_url' => $refusal['audio_url'],
         ];
     }
 }

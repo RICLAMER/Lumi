@@ -10,6 +10,9 @@ Lumi is an AI learning companion for children ages 6 to 14. A child can photogra
 - Fixed, verified test account for hackathon reviewers
 - Mobile camera capture and desktop image upload
 - Voice recording, playback, transcription, and submission
+- Homework help: photograph a worksheet, ask by text or voice, then receive an age-adapted answer and spoken teaching explanation
+- Text-answer or annotated-photo response mode for homework help
+- Private homework-help history (last 20 responses per account), including replayable explanation audio
 - Age-adapted educational explanations in English, Brazilian Portuguese, or Spanish
 - Browser-language detection with a manual language selector
 - AI-generated speech synchronized with the Lumi talking video
@@ -17,7 +20,7 @@ Lumi is an AI learning companion for children ages 6 to 14. A child can photogra
 - Separate daily photo and audio limits per verified account
 - Registration limited to three requests per IP in any five-minute window
 - Tester-only control portal for registration and daily usage limits
-- Temporary processing only: uploaded photos and recordings are not retained
+- Discovery photos and recordings are processed temporarily. Homework-help responses are retained privately in the account history so a child can revisit them. When the annotated-photo option is chosen, that private response image includes the photographed page; direct access requires that same signed-in account.
 
 ## OpenAI usage
 
@@ -43,7 +46,7 @@ Lumi is intentionally strict because its audience includes children.
 - Only an age group and preferred language are used for response adaptation.
 - The display name is excluded from reasoning, vision, and transcription prompts. It is added only to the final text-to-speech request so the greeting and explanation use one consistent voice.
 - Images are resized and re-encoded before analysis, removing EXIF metadata.
-- Photos and voice recordings exist only for the duration of the request.
+- Discovery photos and voice recordings exist only for the duration of the request. Homework photos are retained only when the child specifically chooses the annotated-photo response, and only inside the private history image.
 - Unsafe inputs, unsafe model outputs, and high-risk topics use a pre-generated refusal response.
 - The app does not identify people in images or infer sensitive personal traits.
 

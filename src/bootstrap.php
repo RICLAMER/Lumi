@@ -296,6 +296,34 @@ function ensure_schema(PDO $pdo): void
              ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
         );
         $statement->execute();
+        $version = 4;
+    }
+
+    if ((int) $version < 5) {
+        $pdo->exec(
+            'CREATE TABLE IF NOT EXISTS homework_history (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT UNSIGNED NOT NULL,
+                title VARCHAR(160) NOT NULL,
+                school_subject VARCHAR(120) NOT NULL DEFAULT \'\',
+                prompt_text TEXT NOT NULL,
+                answer_text TEXT NOT NULL,
+                teaching_text TEXT NOT NULL,
+                answer_format ENUM(\'text\', \'image\') NOT NULL DEFAULT \'text\',
+                is_blocked TINYINT(1) NOT NULL DEFAULT 0,
+                audio_path VARCHAR(120) NULL,
+                answer_image_path VARCHAR(120) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_homework_history_user_created (user_id, created_at),
+                CONSTRAINT fk_homework_history_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
+        );
+
+        $statement = $pdo->prepare(
+            "INSERT INTO app_meta (meta_key, meta_value) VALUES ('schema_version', '5')
+             ON DUPLICATE KEY UPDATE meta_value = VALUES(meta_value)"
+        );
+        $statement->execute();
     }
 }
 
@@ -513,6 +541,244 @@ function reserve_ai_request(array $user, string $type): array
         }
         throw $exception;
     }
+}
+
+function clean_uploaded_image(array $upload, string $language): string
+{
+    if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException(lumi_t($language, 'receive_photo_error'));
+    }
+    if ((int) ($upload['size'] ?? 0) > 8 * 1024 * 1024) {
+        throw new RuntimeException(lumi_t($language, 'image_max_error'));
+    }
+    if (!function_exists('imagecreatefromstring')) {
+        throw new RuntimeException(lumi_t($language, 'image_processing_unavailable'));
+    }
+
+    $raw = file_get_contents((string) $upload['tmp_name']);
+    $info = $raw !== false ? @getimagesizefromstring($raw) : false;
+    if ($raw === false || !$info || !in_array($info['mime'], ['image/jpeg', 'image/png', 'image/webp'], true)) {
+        throw new RuntimeException(lumi_t($language, 'image_format_error'));
+    }
+    if ($info[0] < 120 || $info[1] < 120 || $info[0] > 6000 || $info[1] > 6000) {
+        throw new RuntimeException(lumi_t($language, 'image_resolution_error'));
+    }
+
+    $source = @imagecreatefromstring($raw);
+    if (!$source) {
+        throw new RuntimeException(lumi_t($language, 'image_open_error'));
+    }
+
+    $maxEdge = 1280;
+    $scale = min(1, $maxEdge / max($info[0], $info[1]));
+    $width = max(1, (int) round($info[0] * $scale));
+    $height = max(1, (int) round($info[1] * $scale));
+    $canvas = imagecreatetruecolor($width, $height);
+    $white = imagecolorallocate($canvas, 255, 255, 255);
+    imagefill($canvas, 0, 0, $white);
+    imagecopyresampled($canvas, $source, 0, 0, 0, 0, $width, $height, $info[0], $info[1]);
+
+    ob_start();
+    imagejpeg($canvas, null, 82);
+    $cleanJpeg = (string) ob_get_clean();
+    imagedestroy($source);
+    imagedestroy($canvas);
+
+    return $cleanJpeg;
+}
+
+function homework_storage_directory(): string
+{
+    $directory = LUMI_ROOT . '/storage/homework';
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Lumi could not safely prepare homework history.');
+    }
+    return $directory;
+}
+
+function homework_history(array $user, int $limit = 20): array
+{
+    $statement = db()->prepare(
+        'SELECT id, title, school_subject, prompt_text, answer_text, teaching_text,
+                answer_format, is_blocked, audio_path, answer_image_path, created_at
+         FROM homework_history
+         WHERE user_id = :user_id
+         ORDER BY created_at DESC, id DESC
+         LIMIT ' . max(1, min(20, $limit))
+    );
+    $statement->execute(['user_id' => $user['id']]);
+    return $statement->fetchAll();
+}
+
+function homework_history_item(array $user, int $historyId): ?array
+{
+    $statement = db()->prepare(
+        'SELECT id, title, school_subject, prompt_text, answer_text, teaching_text,
+                answer_format, is_blocked, audio_path, answer_image_path, created_at
+         FROM homework_history
+         WHERE id = :id AND user_id = :user_id
+         LIMIT 1'
+    );
+    $statement->execute(['id' => $historyId, 'user_id' => $user['id']]);
+    return $statement->fetch() ?: null;
+}
+
+function homework_history_payload(array $item): array
+{
+    $id = (int) $item['id'];
+    return [
+        'id' => $id,
+        'title' => (string) $item['title'],
+        'school_subject' => (string) $item['school_subject'],
+        'prompt_text' => (string) $item['prompt_text'],
+        'answer_text' => (string) $item['answer_text'],
+        'teaching_text' => (string) $item['teaching_text'],
+        'answer_format' => (string) $item['answer_format'],
+        'blocked' => (bool) $item['is_blocked'],
+        'created_at' => (string) $item['created_at'],
+        'audio_url' => $item['audio_path'] ? 'api/homework-file.php?id=' . $id . '&type=audio' : '',
+        'answer_image_url' => $item['answer_image_path'] ? 'api/homework-file.php?id=' . $id . '&type=image' : '',
+    ];
+}
+
+function homework_svg_lines(string $text, int $lineLength = 52, int $limit = 8): array
+{
+    $text = preg_replace('/\s+/u', ' ', trim($text)) ?: '';
+    $words = preg_split('/\s+/u', $text) ?: [];
+    $lines = [];
+    $line = '';
+    foreach ($words as $word) {
+        $candidate = $line === '' ? $word : $line . ' ' . $word;
+        if (mb_strlen($candidate) > $lineLength && $line !== '') {
+            $lines[] = $line;
+            $line = $word;
+            if (count($lines) >= $limit) {
+                break;
+            }
+            continue;
+        }
+        $line = $candidate;
+    }
+    if ($line !== '' && count($lines) < $limit) {
+        $lines[] = $line;
+    }
+    if (count($words) && count($lines) >= $limit) {
+        $lines[$limit - 1] = rtrim($lines[$limit - 1], '. ') . '...';
+    }
+    return $lines;
+}
+
+function homework_answer_svg(string $jpegBytes, string $title, string $answer, string $language): string
+{
+    $image = base64_encode($jpegBytes);
+    $safeTitle = htmlspecialchars($title, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    $lines = homework_svg_lines($answer);
+    $lineMarkup = '';
+    foreach ($lines as $index => $line) {
+        $safeLine = htmlspecialchars($line, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $y = 1050 + ($index * 52);
+        $lineMarkup .= "<text x=\"86\" y=\"{$y}\" class=\"answer\">{$safeLine}</text>";
+    }
+    $label = match (normalize_language($language)) {
+        'pt' => 'Resposta da Lumi',
+        'es' => 'Respuesta de Lumi',
+        default => 'Lumi\'s answer',
+    };
+    $safeLabel = htmlspecialchars($label, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+    return <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1500" role="img" aria-label="{$safeLabel}">
+  <style>
+    .label { font: 700 25px Arial, sans-serif; fill: #a52158; letter-spacing: 1.3px; }
+    .title { font: 700 46px Arial, sans-serif; fill: #17324d; }
+    .answer { font: 400 35px Arial, sans-serif; fill: #17324d; }
+  </style>
+  <rect width="1200" height="1500" fill="#f7fbfc"/>
+  <image href="data:image/jpeg;base64,{$image}" x="0" y="0" width="1200" height="900" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="42" y="838" width="1116" height="620" rx="30" fill="#ffffff"/>
+  <rect x="42" y="838" width="18" height="620" rx="9" fill="#ff6d9f"/>
+  <text x="86" y="920" class="label">{$safeLabel}</text>
+  <text x="86" y="982" class="title">{$safeTitle}</text>
+  {$lineMarkup}
+</svg>
+SVG;
+}
+
+function save_homework_history(
+    array $user,
+    array $result,
+    string $answerFormat,
+    string $sourceImage,
+    string $promptText,
+    string $language
+): array {
+    $answerFormat = $answerFormat === 'image' ? 'image' : 'text';
+    $token = bin2hex(random_bytes(18));
+    $audioPath = null;
+    $imagePath = null;
+    $directory = homework_storage_directory();
+
+    if (!$result['blocked'] && !empty($result['audio_data_url'])) {
+        $audio = base64_decode((string) substr((string) $result['audio_data_url'], strrpos((string) $result['audio_data_url'], ',') + 1), true);
+        if ($audio !== false) {
+            $audioPath = $token . '.mp3';
+            file_put_contents($directory . '/' . $audioPath, $audio, LOCK_EX);
+        }
+    } elseif (!empty($result['audio_url']) && preg_match('#^assets/audio/refusal-(en|pt|es)\.mp3$#', (string) $result['audio_url'])) {
+        $source = LUMI_ROOT . '/' . (string) $result['audio_url'];
+        if (is_file($source)) {
+            $audioPath = $token . '.mp3';
+            copy($source, $directory . '/' . $audioPath);
+        }
+    }
+    if (!$result['blocked'] && $answerFormat === 'image') {
+        $imagePath = $token . '.svg';
+        file_put_contents(
+            $directory . '/' . $imagePath,
+            homework_answer_svg($sourceImage, (string) $result['title'], (string) $result['answer_text'], $language),
+            LOCK_EX
+        );
+    }
+
+    $statement = db()->prepare(
+        'INSERT INTO homework_history
+            (user_id, title, school_subject, prompt_text, answer_text, teaching_text,
+             answer_format, is_blocked, audio_path, answer_image_path)
+         VALUES
+            (:user_id, :title, :school_subject, :prompt_text, :answer_text, :teaching_text,
+             :answer_format, :is_blocked, :audio_path, :answer_image_path)'
+    );
+    $statement->execute([
+        'user_id' => $user['id'],
+        'title' => mb_substr((string) $result['title'], 0, 160),
+        'school_subject' => mb_substr((string) ($result['school_subject'] ?? ''), 0, 120),
+        'prompt_text' => mb_substr($promptText, 0, 2000),
+        'answer_text' => (string) ($result['answer_text'] ?? ''),
+        'teaching_text' => (string) ($result['teaching_text'] ?? ''),
+        'answer_format' => $answerFormat,
+        'is_blocked' => !empty($result['blocked']) ? 1 : 0,
+        'audio_path' => $audioPath,
+        'answer_image_path' => $imagePath,
+    ]);
+    $id = (int) db()->lastInsertId();
+
+    $oldItems = db()->prepare(
+        'SELECT id, audio_path, answer_image_path FROM homework_history
+         WHERE user_id = :user_id ORDER BY created_at DESC, id DESC LIMIT 20, 18446744073709551615'
+    );
+    $oldItems->execute(['user_id' => $user['id']]);
+    foreach ($oldItems->fetchAll() as $oldItem) {
+        foreach (['audio_path', 'answer_image_path'] as $field) {
+            $path = (string) ($oldItem[$field] ?? '');
+            if ($path !== '' && preg_match('/^[a-f0-9]{36}\.(?:mp3|svg)$/', $path)) {
+                @unlink($directory . '/' . $path);
+            }
+        }
+        $delete = db()->prepare('DELETE FROM homework_history WHERE id = :id AND user_id = :user_id');
+        $delete->execute(['id' => $oldItem['id'], 'user_id' => $user['id']]);
+    }
+
+    return homework_history_payload(homework_history_item($user, $id) ?? []);
 }
 
 function client_fingerprint(): string

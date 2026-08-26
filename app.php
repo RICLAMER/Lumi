@@ -13,6 +13,7 @@ if (!$user) {
 $language = set_language_preference((string) $user['language']);
 $locale = language_locale($language);
 $usage = ai_usage_summary($user);
+$homeworkHistory = homework_history($user);
 $t = static fn(string $key, array $replacements = []): string =>
     lumi_t($language, $key, $replacements);
 $h = static fn(string $value): string =>
@@ -54,6 +55,9 @@ unset($_SESSION['flash']);
                     <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a2 2 0 0 0 .4 2.2l.1.1-2.6 2.6-.1-.1A2 2 0 0 0 15 19.4a2 2 0 0 0-1.2 1.8V21h-3.6v-.2A2 2 0 0 0 9 19.4a2 2 0 0 0-2.2.4l-.1.1-2.6-2.6.1-.1A2 2 0 0 0 4.6 15a2 2 0 0 0-1.8-1.2H2v-3.6h.8A2 2 0 0 0 4.6 9a2 2 0 0 0-.4-2.2l-.1-.1 2.6-2.6.1.1A2 2 0 0 0 9 4.6a2 2 0 0 0 1.2-1.8V2h3.6v.8A2 2 0 0 0 15 4.6a2 2 0 0 0 2.2-.4l.1-.1 2.6 2.6-.1.1A2 2 0 0 0 19.4 9a2 2 0 0 0 1.8 1.2h.8v3.6h-.8A2 2 0 0 0 19.4 15z"/></svg>
                 </a>
             <?php endif; ?>
+            <button class="icon-button" type="button" data-open-homework-history aria-label="<?= $h($t('homework_history_label')) ?>" title="<?= $h($t('homework_history')) ?>">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5M12 7v5l3 2"/></svg>
+            </button>
             <label class="app-language-picker" title="<?= $h($t('language_label')) ?>">
                 <span class="sr-only"><?= $h($t('language_label')) ?></span>
                 <select data-app-language aria-label="<?= $h($t('language_label')) ?>">
@@ -98,6 +102,13 @@ unset($_SESSION['flash']);
                     <span class="cube-face cube-top" aria-hidden="true"></span>
                     <span class="cube-face cube-side" aria-hidden="true"></span>
                     <span class="cube-label"><?= $h($t('photograph')) ?></span>
+                </button>
+
+                <button class="homework-button" type="button" data-open-homework aria-label="<?= $h($t('homework_help_label')) ?>">
+                    <span class="homework-button-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v17H7.5A2.5 2.5 0 0 0 5 21.5z"/><path d="M5 4.5v17M9 7h6M9 11h4"/><path d="m16.5 12 .75 1.75L19 14.5l-1.75.75L16.5 17l-.75-1.75L14 14.5l1.75-.75z"/></svg>
+                    </span>
+                    <span><?= $h($t('homework_help')) ?></span>
                 </button>
             </div>
 
@@ -160,6 +171,74 @@ unset($_SESSION['flash']);
         </div>
     </dialog>
 
+    <dialog class="flow-dialog homework-dialog" id="homework-dialog" aria-labelledby="homework-title">
+        <div class="homework-shell">
+            <header class="flow-header homework-header">
+                <div>
+                    <p class="flow-kicker"><?= $h($t('homework_kicker')) ?></p>
+                    <h2 id="homework-title"><?= $h($t('homework_title')) ?></h2>
+                    <p><?= $h($t('homework_intro')) ?></p>
+                </div>
+                <button class="icon-button icon-button-dark" type="button" data-close-homework aria-label="<?= $h($t('exit')) ?>">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+            </header>
+
+            <div class="homework-workspace">
+                <section class="homework-photo-panel" aria-labelledby="homework-photo-title">
+                    <h3 id="homework-photo-title"><?= $h($t('homework_photo_title')) ?></h3>
+                    <div class="camera-stage homework-camera-stage">
+                        <video data-homework-camera-video autoplay playsinline muted></video>
+                        <img data-homework-photo-preview alt="<?= $h($t('photo_preview')) ?>" hidden>
+                        <div class="camera-empty" data-homework-camera-empty>
+                            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                            <p><?= $h($t('homework_photo_hint')) ?></p>
+                        </div>
+                    </div>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" data-homework-photo-input hidden>
+                    <div class="homework-photo-actions">
+                        <button class="action-button action-secondary" type="button" data-homework-choose-photo><?= $h($t('gallery')) ?></button>
+                        <button class="capture-button" type="button" data-homework-capture-photo aria-label="<?= $h($t('capture_photo')) ?>"><span></span></button>
+                    </div>
+                </section>
+
+                <section class="homework-question-panel" aria-labelledby="homework-question-title">
+                    <h3 id="homework-question-title"><?= $h($t('homework_question_title')) ?></h3>
+                    <p><?= $h($t('homework_question_hint')) ?></p>
+                    <textarea class="homework-question-input" data-homework-question maxlength="1200" placeholder="<?= $h($t('homework_question_placeholder')) ?>"></textarea>
+                    <div class="homework-audio-row">
+                        <button class="homework-record-button" type="button" data-homework-record aria-label="<?= $h($t('homework_record')) ?>">
+                            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
+                            <span data-homework-record-label><?= $h($t('homework_record')) ?></span>
+                        </button>
+                        <span class="homework-recording-status" data-homework-record-status></span>
+                    </div>
+                    <audio class="homework-audio-preview" data-homework-recording-preview controls hidden></audio>
+
+                    <fieldset class="answer-format-toggle">
+                        <legend><?= $h($t('homework_format_legend')) ?></legend>
+                        <label>
+                            <input type="radio" name="homework-answer-format" value="text" checked>
+                            <span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><?= $h($t('homework_format_text')) ?></span>
+                        </label>
+                        <label>
+                            <input type="radio" name="homework-answer-format" value="image">
+                            <span><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m5 16 5-5 3 3 2-2 4 4"/><circle cx="15.5" cy="9" r="1.2"/></svg><?= $h($t('homework_format_image')) ?></span>
+                        </label>
+                    </fieldset>
+                </section>
+            </div>
+
+            <div class="flow-actions homework-actions">
+                <button class="action-button action-secondary" type="button" data-close-homework><?= $h($t('homework_cancel')) ?></button>
+                <button class="action-button action-primary" type="button" data-send-homework disabled>
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12l16-8-5 16-3-6z"/><path d="M12 14l8-10"/></svg>
+                    <?= $h($t('homework_send')) ?>
+                </button>
+            </div>
+        </div>
+    </dialog>
+
     <dialog class="flow-dialog voice-dialog" id="voice-dialog" aria-labelledby="voice-title">
         <div class="voice-shell">
             <button class="icon-button voice-close" type="button" data-close-voice aria-label="<?= $h($t('exit')) ?>">
@@ -199,6 +278,67 @@ unset($_SESSION['flash']);
         </div>
     </dialog>
 
+    <dialog class="flow-dialog homework-result-dialog" id="homework-result-dialog" aria-labelledby="homework-result-title">
+        <div class="homework-result-shell">
+            <button class="icon-button icon-button-dark homework-result-close" type="button" data-close-homework-result aria-label="<?= $h($t('homework_close')) ?>">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+            <div class="homework-result-copy">
+                <p class="flow-kicker" data-homework-result-subject><?= $h($t('homework_kicker')) ?></p>
+                <h2 id="homework-result-title" data-homework-result-title></h2>
+                <section class="homework-answer-card" data-homework-answer-text-wrap>
+                    <h3><?= $h($t('homework_answer')) ?></h3>
+                    <p data-homework-answer-text></p>
+                </section>
+                <img class="homework-answer-image" data-homework-answer-image alt="<?= $h($t('homework_image_alt')) ?>" hidden>
+                <section class="homework-teaching-card">
+                    <h3><?= $h($t('homework_teaching')) ?></h3>
+                    <p data-homework-teaching-text></p>
+                </section>
+                <p class="voice-disclosure"><?= $h($t('voice_disclosure')) ?></p>
+                <div class="flow-actions homework-result-actions">
+                    <button class="action-button action-secondary" type="button" data-repeat-homework-audio>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6M4 4v6h6"/></svg>
+                        <?= $h($t('homework_repeat')) ?>
+                    </button>
+                    <button class="action-button action-primary" type="button" data-close-homework-result><?= $h($t('exit')) ?></button>
+                </div>
+            </div>
+            <div class="homework-lumi-speaker">
+                <button class="homework-speaker-close" type="button" data-close-homework-result aria-label="<?= $h($t('homework_close')) ?>">×</button>
+                <video src="assets/video/explanation-talk.mp4" data-homework-explanation-video playsinline loop muted></video>
+            </div>
+            <audio data-homework-explanation-audio></audio>
+        </div>
+    </dialog>
+
+    <dialog class="flow-dialog homework-history-dialog" id="homework-history-dialog" aria-labelledby="homework-history-title">
+        <div class="homework-history-shell">
+            <header class="flow-header">
+                <div>
+                    <p class="flow-kicker"><?= $h($t('homework_kicker')) ?></p>
+                    <h2 id="homework-history-title"><?= $h($t('homework_history_title')) ?></h2>
+                    <p><?= $h($t('homework_history_intro')) ?></p>
+                </div>
+                <button class="icon-button icon-button-dark" type="button" data-close-homework-history aria-label="<?= $h($t('exit')) ?>">
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+            </header>
+            <div class="homework-history-list" data-homework-history-list>
+                <?php if (!$homeworkHistory): ?>
+                    <p class="homework-history-empty" data-homework-history-empty><?= $h($t('homework_history_empty')) ?></p>
+                <?php endif; ?>
+                <?php foreach ($homeworkHistory as $entry): ?>
+                    <button class="homework-history-item" type="button" data-open-homework-history-item data-history-id="<?= (int) $entry['id'] ?>">
+                        <span class="homework-history-item-icon" aria-hidden="true">✦</span>
+                        <span><strong><?= $h((string) $entry['title']) ?></strong><small><?= $h((string) ($entry['school_subject'] ?: $t('homework_help'))) ?></small></span>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </dialog>
+
     <dialog class="flow-dialog processing-dialog" id="processing-dialog" aria-labelledby="processing-title">
         <div class="media-shell">
             <video src="assets/video/waiting-processing.mp4" data-processing-video playsinline loop></video>
@@ -211,7 +351,7 @@ unset($_SESSION['flash']);
                 <div class="processing-actions">
                     <button class="action-button action-primary action-large" type="button" data-show-explanation disabled>
                         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <?= $h($t('explanation')) ?>
+                        <span data-processing-action-label><?= $h($t('explanation')) ?></span>
                     </button>
                     <button class="action-button action-ghost-light" type="button" data-cancel-processing><?= $h($t('exit')) ?></button>
                 </div>
