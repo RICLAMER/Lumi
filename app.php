@@ -97,19 +97,22 @@ unset($_SESSION['flash']);
                     <span><?= $h($t('ask')) ?></span>
                 </button>
 
-                <button class="photo-cube" type="button" data-open-photo aria-label="<?= $h($t('take_photo')) ?>">
-                    <span class="cube-face cube-front">?</span>
-                    <span class="cube-face cube-top" aria-hidden="true"></span>
-                    <span class="cube-face cube-side" aria-hidden="true"></span>
-                    <span class="cube-label"><?= $h($t('photograph')) ?></span>
-                </button>
+                <div class="discovery-lower-actions">
+                    <button class="homework-button" type="button" data-open-homework aria-label="<?= $h($t('homework_help_label')) ?>">
+                        <span class="homework-notebook" aria-hidden="true">
+                            <span class="homework-notebook-binding"></span>
+                            <svg class="homework-notebook-pencil" viewBox="0 0 24 24"><path d="m4 20 4.3-1 10.8-10.8-3.3-3.3L5 15.7z"/><path d="m14.8 5.9 3.3 3.3M4 20l1-4.3 3.3 3.3z"/></svg>
+                            <span class="homework-notebook-label"><?= $h($t('homework_notebook_label')) ?></span>
+                        </span>
+                    </button>
 
-                <button class="homework-button" type="button" data-open-homework aria-label="<?= $h($t('homework_help_label')) ?>">
-                    <span class="homework-button-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v17H7.5A2.5 2.5 0 0 0 5 21.5z"/><path d="M5 4.5v17M9 7h6M9 11h4"/><path d="m16.5 12 .75 1.75L19 14.5l-1.75.75L16.5 17l-.75-1.75L14 14.5l1.75-.75z"/></svg>
-                    </span>
-                    <span><?= $h($t('homework_help')) ?></span>
-                </button>
+                    <button class="photo-cube" type="button" data-open-photo aria-label="<?= $h($t('take_photo')) ?>">
+                        <span class="cube-face cube-front">?</span>
+                        <span class="cube-face cube-top" aria-hidden="true"></span>
+                        <span class="cube-face cube-side" aria-hidden="true"></span>
+                        <span class="cube-label"><?= $h($t('photograph')) ?></span>
+                    </button>
+                </div>
             </div>
 
             <div class="lumi-character">
