@@ -490,6 +490,14 @@ function ai_usage_summary(array $user): array
 
 function reserve_ai_request(array $user, string $type): array
 {
+    return reserve_ai_requests($user, $type, 1);
+}
+
+function reserve_ai_requests(array $user, string $type, int $count = 1): array
+{
+    if ($count < 1 || $count > 4) {
+        throw new InvalidArgumentException('Invalid usage count.');
+    }
     $column = match ($type) {
         'image' => 'image_requests',
         'voice' => 'voice_requests',
@@ -512,7 +520,7 @@ function reserve_ai_request(array $user, string $type): array
         );
         $select->execute(['user_id' => $user['id']]);
         $current = (int) $select->fetchColumn();
-        if ($current >= $limit) {
+        if ($current + $count > $limit) {
             $pdo->rollBack();
             throw new RuntimeException(
                 lumi_t($language, 'daily_limit_message', [
@@ -523,13 +531,16 @@ function reserve_ai_request(array $user, string $type): array
 
         $update = $pdo->prepare(
             "UPDATE ai_usage
-             SET total_requests = total_requests + 1, {$column} = {$column} + 1
+             SET total_requests = total_requests + :total_count, {$column} = {$column} + :type_count
              WHERE user_id = :user_id AND usage_date = CURRENT_DATE()"
         );
-        $update->execute(['user_id' => $user['id']]);
+        $update->bindValue(':total_count', $count, PDO::PARAM_INT);
+        $update->bindValue(':type_count', $count, PDO::PARAM_INT);
+        $update->bindValue(':user_id', (int) $user['id'], PDO::PARAM_INT);
+        $update->execute();
         $pdo->commit();
 
-        $used = $current + 1;
+        $used = $current + $count;
         return [
             'used' => $used,
             'limit' => $limit,
@@ -668,15 +679,25 @@ function homework_svg_lines(string $text, int $lineLength = 52, int $limit = 8):
     return $lines;
 }
 
-function homework_answer_svg(string $jpegBytes, string $title, string $answer, string $language): string
+function homework_answer_svg(array $jpegImages, string $title, string $answer, string $language): string
 {
-    $image = base64_encode($jpegBytes);
     $safeTitle = htmlspecialchars($title, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-    $lines = homework_svg_lines($answer);
+    $lines = homework_svg_lines($answer, 52, 16);
+    $photoHeight = max(1, count($jpegImages)) * 900;
+    $panelTop = $photoHeight - 62;
+    $panelHeight = max(620, 250 + (count($lines) * 52));
+    $viewHeight = $panelTop + $panelHeight + 42;
+    $imageMarkup = '';
+    foreach (array_slice($jpegImages, 0, 4) as $index => $jpegBytes) {
+        $image = base64_encode((string) $jpegBytes);
+        $y = $index * 900;
+        $imageMarkup .= "<rect x=\"0\" y=\"{$y}\" width=\"1200\" height=\"900\" fill=\"#ffffff\"/>";
+        $imageMarkup .= "<image href=\"data:image/jpeg;base64,{$image}\" x=\"0\" y=\"{$y}\" width=\"1200\" height=\"900\" preserveAspectRatio=\"xMidYMid meet\"/>";
+    }
     $lineMarkup = '';
     foreach ($lines as $index => $line) {
         $safeLine = htmlspecialchars($line, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-        $y = 1050 + ($index * 52);
+        $y = $panelTop + 212 + ($index * 52);
         $lineMarkup .= "<text x=\"86\" y=\"{$y}\" class=\"answer\">{$safeLine}</text>";
     }
     $label = match (normalize_language($language)) {
@@ -687,18 +708,18 @@ function homework_answer_svg(string $jpegBytes, string $title, string $answer, s
     $safeLabel = htmlspecialchars($label, ENT_XML1 | ENT_QUOTES, 'UTF-8');
 
     return <<<SVG
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1500" role="img" aria-label="{$safeLabel}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 {$viewHeight}" role="img" aria-label="{$safeLabel}">
   <style>
     .label { font: 700 25px Arial, sans-serif; fill: #a52158; letter-spacing: 1.3px; }
     .title { font: 700 46px Arial, sans-serif; fill: #17324d; }
     .answer { font: 400 35px Arial, sans-serif; fill: #17324d; }
   </style>
-  <rect width="1200" height="1500" fill="#f7fbfc"/>
-  <image href="data:image/jpeg;base64,{$image}" x="0" y="0" width="1200" height="900" preserveAspectRatio="xMidYMid slice"/>
-  <rect x="42" y="838" width="1116" height="620" rx="30" fill="#ffffff"/>
-  <rect x="42" y="838" width="18" height="620" rx="9" fill="#ff6d9f"/>
-  <text x="86" y="920" class="label">{$safeLabel}</text>
-  <text x="86" y="982" class="title">{$safeTitle}</text>
+  <rect width="1200" height="{$viewHeight}" fill="#f7fbfc"/>
+  {$imageMarkup}
+  <rect x="42" y="{$panelTop}" width="1116" height="{$panelHeight}" rx="30" fill="#ffffff"/>
+  <rect x="42" y="{$panelTop}" width="18" height="{$panelHeight}" rx="9" fill="#ff6d9f"/>
+  <text x="86" y="{$panelTop}" dy="82" class="label">{$safeLabel}</text>
+  <text x="86" y="{$panelTop}" dy="144" class="title">{$safeTitle}</text>
   {$lineMarkup}
 </svg>
 SVG;
@@ -708,7 +729,7 @@ function save_homework_history(
     array $user,
     array $result,
     string $answerFormat,
-    string $sourceImage,
+    array $sourceImages,
     string $promptText,
     string $language
 ): array {
@@ -735,7 +756,7 @@ function save_homework_history(
         $imagePath = $token . '.svg';
         file_put_contents(
             $directory . '/' . $imagePath,
-            homework_answer_svg($sourceImage, (string) $result['title'], (string) $result['answer_text'], $language),
+            homework_answer_svg($sourceImages, (string) $result['title'], (string) $result['answer_text'], $language),
             LOCK_EX
         );
     }
