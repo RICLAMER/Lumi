@@ -199,30 +199,23 @@ unset($_SESSION['flash']);
                     <h3 id="homework-photo-title"><?= $h($t('homework_photo_title')) ?></h3>
                     <div class="camera-stage homework-camera-stage">
                         <video data-homework-camera-video autoplay playsinline muted></video>
+                        <img data-homework-photo-preview alt="<?= $h($t('photo_preview')) ?>" hidden>
                         <div class="camera-empty" data-homework-camera-empty>
                             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
                             <p><?= $h($t('homework_photo_hint')) ?></p>
                         </div>
                     </div>
-                    <input type="file" accept="image/jpeg,image/png,image/webp" data-homework-photo-input multiple hidden>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" data-homework-photo-input hidden>
                     <div class="homework-photo-actions">
                         <button class="action-button action-secondary" type="button" data-homework-choose-photo><?= $h($t('gallery')) ?></button>
                         <button class="capture-button" type="button" data-homework-capture-photo aria-label="<?= $h($t('capture_photo')) ?>"><span></span></button>
                     </div>
-                    <div class="homework-photo-summary">
-                        <strong data-homework-photo-count><?= $h($t('homework_photo_count', ['count' => 0, 'max' => 4])) ?></strong>
-                        <span><?= $h($t('homework_photo_limit')) ?></span>
-                    </div>
-                    <div class="homework-photo-list" data-homework-photo-list aria-live="polite"></div>
                 </section>
 
                 <section class="homework-question-panel" aria-labelledby="homework-question-title">
                     <h3 id="homework-question-title"><?= $h($t('homework_question_title')) ?></h3>
                     <p><?= $h($t('homework_question_hint')) ?></p>
-                    <div class="homework-question-field">
-                        <svg class="homework-question-microphone" aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
-                        <textarea class="homework-question-input" data-homework-question maxlength="1200" placeholder="<?= $h($t('homework_question_placeholder')) ?>"></textarea>
-                    </div>
+                    <textarea class="homework-question-input" data-homework-question maxlength="1200" placeholder="<?= $h($t('homework_question_placeholder')) ?>"></textarea>
                     <div class="homework-audio-row">
                         <button class="homework-record-button" type="button" data-homework-record aria-label="<?= $h($t('homework_record')) ?>">
                             <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
@@ -307,10 +300,7 @@ unset($_SESSION['flash']);
                     <h3><?= $h($t('homework_answer')) ?></h3>
                     <p data-homework-answer-text></p>
                 </section>
-                <button class="homework-answer-image-button" type="button" data-open-homework-image hidden aria-label="<?= $h($t('homework_expand_image')) ?>">
-                    <img class="homework-answer-image" data-homework-answer-image alt="<?= $h($t('homework_image_alt')) ?>">
-                    <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></span>
-                </button>
+                <img class="homework-answer-image" data-homework-answer-image alt="<?= $h($t('homework_image_alt')) ?>" hidden>
                 <section class="homework-teaching-card">
                     <h3><?= $h($t('homework_teaching')) ?></h3>
                     <p data-homework-teaching-text></p>
@@ -329,20 +319,6 @@ unset($_SESSION['flash']);
                 <video src="assets/video/explanation-talk.mp4" data-homework-explanation-video playsinline loop muted></video>
             </div>
             <audio data-homework-explanation-audio></audio>
-        </div>
-    </dialog>
-
-    <dialog class="homework-image-viewer" id="homework-image-viewer" aria-label="<?= $h($t('homework_image_alt')) ?>">
-        <div class="homework-image-viewer-shell">
-            <div class="homework-image-toolbar">
-                <button class="icon-button" type="button" data-homework-zoom-out aria-label="<?= $h($t('homework_zoom_out')) ?>"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M16 16l5 5"/></svg></button>
-                <button class="homework-zoom-reset" type="button" data-homework-zoom-reset aria-label="<?= $h($t('homework_zoom_reset')) ?>">100%</button>
-                <button class="icon-button" type="button" data-homework-zoom-in aria-label="<?= $h($t('homework_zoom_in')) ?>"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M16 16l5 5"/></svg></button>
-                <button class="icon-button" type="button" data-close-homework-image aria-label="<?= $h($t('homework_image_close')) ?>"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-            </div>
-            <div class="homework-image-stage" data-homework-image-stage>
-                <img data-homework-fullscreen-image alt="<?= $h($t('homework_image_alt')) ?>">
-            </div>
         </div>
     </dialog>
 

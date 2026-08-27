@@ -12,25 +12,8 @@ $user = require_user();
 $language = request_language($user);
 
 try {
-    $imageUploads = [];
-    if (isset($_FILES['images']) && is_array($_FILES['images']) && is_array($_FILES['images']['name'] ?? null)) {
-        foreach ($_FILES['images']['name'] as $index => $name) {
-            $imageUploads[] = [
-                'name' => $name,
-                'type' => $_FILES['images']['type'][$index] ?? '',
-                'tmp_name' => $_FILES['images']['tmp_name'][$index] ?? '',
-                'error' => $_FILES['images']['error'][$index] ?? UPLOAD_ERR_NO_FILE,
-                'size' => $_FILES['images']['size'][$index] ?? 0,
-            ];
-        }
-    } elseif (isset($_FILES['image']) && is_array($_FILES['image'])) {
-        $imageUploads[] = $_FILES['image'];
-    }
-    if (!$imageUploads) {
+    if (!isset($_FILES['image']) || !is_array($_FILES['image'])) {
         json_response(['ok' => false, 'message' => lumi_t($language, 'choose_photo_error')], 422);
-    }
-    if (count($imageUploads) > 4) {
-        json_response(['ok' => false, 'message' => lumi_t($language, 'homework_photo_limit')], 422);
     }
 
     $question = trim((string) ($_POST['question'] ?? ''));
@@ -72,22 +55,19 @@ try {
     }
 
     $summary = ai_usage_summary($user);
-    if ($summary['image']['remaining'] < count($imageUploads)) {
+    if ($summary['image']['remaining'] < 1) {
         throw new RuntimeException(lumi_t($language, 'daily_limit_message', ['type' => lumi_t($language, 'type_image')]));
     }
     if ($audioPath && $summary['voice']['remaining'] < 1) {
         throw new RuntimeException(lumi_t($language, 'daily_limit_message', ['type' => lumi_t($language, 'type_voice')]));
     }
 
-    $cleanImages = array_map(
-        static fn (array $upload): string => clean_uploaded_image($upload, $language),
-        $imageUploads
-    );
-    $imageUsage = reserve_ai_requests($user, 'image', count($cleanImages));
+    $cleanImage = clean_uploaded_image($_FILES['image'], $language);
+    $imageUsage = reserve_ai_request($user, 'image');
     $voiceUsage = $audioPath ? reserve_ai_request($user, 'voice') : null;
 
     $result = (new AiService())->helpWithHomework(
-        $cleanImages,
+        $cleanImage,
         $question,
         $audioPath,
         $audioMime,
@@ -96,7 +76,7 @@ try {
         (string) $user['display_name']
     );
     $promptText = trim($question . (($result['transcript'] ?? '') !== $question ? "\n" . (string) ($result['transcript'] ?? '') : ''));
-    $history = save_homework_history($user, $result, $answerFormat, $cleanImages, $promptText, $language);
+    $history = save_homework_history($user, $result, $answerFormat, $cleanImage, $promptText, $language);
 
     json_response([
         'ok' => true,

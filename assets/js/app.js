@@ -34,8 +34,6 @@
             homeworkReadyMessage: 'Tap to see the answer and listen to Lumi explain it.',
             homeworkShowAnswer: 'See my help', explanation: 'Explanation', homeworkHistoryMissing: 'That homework help is no longer available.',
             homeworkRecord: 'Record a question', homeworkRecordAgain: 'Record again',
-            homeworkPhotoCount: '{count} of {max} photos', homeworkPhotoLimit: 'You can add up to {max} photos.',
-            homeworkPhotoRemaining: 'Only {remaining} photo uploads remain today.', homeworkRemovePhoto: 'Remove photo {number}',
             categories: {
                 object: 'object', animal: 'animal', plant: 'plant', food: 'food',
                 question: 'question', other: 'curiosity',
@@ -72,8 +70,6 @@
             homeworkReadyMessage: 'Toque para ver a resposta e ouvir a Lumi explicar.',
             homeworkShowAnswer: 'Ver minha ajuda', explanation: 'Explicação', homeworkHistoryMissing: 'Essa ajuda com a lição não está mais disponível.',
             homeworkRecord: 'Gravar uma pergunta', homeworkRecordAgain: 'Gravar novamente',
-            homeworkPhotoCount: '{count} de {max} fotos', homeworkPhotoLimit: 'Você pode adicionar até {max} fotos.',
-            homeworkPhotoRemaining: 'Restam apenas {remaining} envios de foto hoje.', homeworkRemovePhoto: 'Remover foto {number}',
             categories: {
                 object: 'objeto', animal: 'animal', plant: 'planta', food: 'alimento',
                 question: 'pergunta', other: 'curiosidade',
@@ -110,8 +106,6 @@
             homeworkReadyMessage: 'Toca para ver la respuesta y escuchar a Lumi explicarla.',
             homeworkShowAnswer: 'Ver mi ayuda', explanation: 'Explicación', homeworkHistoryMissing: 'Esta ayuda con la tarea ya no está disponible.',
             homeworkRecord: 'Grabar una pregunta', homeworkRecordAgain: 'Grabar de nuevo',
-            homeworkPhotoCount: '{count} de {max} fotos', homeworkPhotoLimit: 'Puedes añadir hasta {max} fotos.',
-            homeworkPhotoRemaining: 'Solo quedan {remaining} envíos de foto hoy.', homeworkRemovePhoto: 'Eliminar foto {number}',
             categories: {
                 object: 'objeto', animal: 'animal', plant: 'planta', food: 'alimento',
                 question: 'pregunta', other: 'curiosidad',
@@ -685,9 +679,8 @@
 
     const homeworkCameraVideo = document.querySelector('[data-homework-camera-video]');
     const homeworkCameraEmpty = document.querySelector('[data-homework-camera-empty]');
+    const homeworkPhotoPreview = document.querySelector('[data-homework-photo-preview]');
     const homeworkPhotoInput = document.querySelector('[data-homework-photo-input]');
-    const homeworkPhotoList = document.querySelector('[data-homework-photo-list]');
-    const homeworkPhotoCount = document.querySelector('[data-homework-photo-count]');
     const homeworkQuestion = document.querySelector('[data-homework-question]');
     const homeworkSendButton = document.querySelector('[data-send-homework]');
     const homeworkRecordButton = document.querySelector('[data-homework-record]');
@@ -701,17 +694,13 @@
     const homeworkAnswerText = document.querySelector('[data-homework-answer-text]');
     const homeworkAnswerTextWrap = document.querySelector('[data-homework-answer-text-wrap]');
     const homeworkAnswerImage = document.querySelector('[data-homework-answer-image]');
-    const homeworkAnswerImageButton = document.querySelector('[data-open-homework-image]');
     const homeworkTeachingText = document.querySelector('[data-homework-teaching-text]');
     const homeworkExplanationVideo = document.querySelector('[data-homework-explanation-video]');
     const homeworkExplanationAudio = document.querySelector('[data-homework-explanation-audio]');
-    const homeworkImageViewer = document.querySelector('#homework-image-viewer');
-    const homeworkFullscreenImage = document.querySelector('[data-homework-fullscreen-image]');
-    const homeworkZoomReset = document.querySelector('[data-homework-zoom-reset]');
 
     let homeworkCameraStream = null;
-    let homeworkPhotos = [];
-    let homeworkImageZoom = 1;
+    let homeworkPhoto = null;
+    let homeworkPhotoUrl = '';
     let homeworkAudioStream = null;
     let homeworkRecorder = null;
     let homeworkRecordedBlob = null;
@@ -741,57 +730,31 @@
         }
     };
 
-    const HOMEWORK_MAX_PHOTOS = 4;
-
-    const renderHomeworkPhotos = () => {
-        if (homeworkPhotoCount) {
-            homeworkPhotoCount.textContent = formatCopy(copy.homeworkPhotoCount, {
-                count: homeworkPhotos.length,
-                max: HOMEWORK_MAX_PHOTOS,
-            });
-        }
-        if (homeworkPhotoList) {
-            homeworkPhotoList.replaceChildren(...homeworkPhotos.map((entry, index) => {
-                const item = document.createElement('div');
-                item.className = 'homework-photo-item';
-                const image = document.createElement('img');
-                image.src = entry.url;
-                image.alt = `${index + 1}`;
-                const remove = document.createElement('button');
-                remove.type = 'button';
-                remove.className = 'homework-photo-remove';
-                remove.dataset.removeHomeworkPhoto = String(index);
-                remove.setAttribute('aria-label', formatCopy(copy.homeworkRemovePhoto, { number: index + 1 }));
-                remove.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>';
-                item.append(image, remove);
-                return item;
-            }));
-        }
-        const remaining = Math.max(0, usageState.image.limit - usageState.image.used);
-        if (homeworkSendButton) {
-            homeworkSendButton.disabled = homeworkPhotos.length === 0 || homeworkPhotos.length > remaining;
-        }
-    };
-
-    const resetHomeworkPhotos = () => {
-        homeworkPhotos.forEach((entry) => URL.revokeObjectURL(entry.url));
-        homeworkPhotos = [];
+    const resetHomeworkPhoto = () => {
+        homeworkPhoto = null;
+        if (homeworkPhotoUrl) URL.revokeObjectURL(homeworkPhotoUrl);
+        homeworkPhotoUrl = '';
+        homeworkPhotoPreview?.removeAttribute('src');
+        if (homeworkPhotoPreview) homeworkPhotoPreview.hidden = true;
+        if (homeworkCameraVideo) homeworkCameraVideo.hidden = false;
         if (homeworkPhotoInput) homeworkPhotoInput.value = '';
-        renderHomeworkPhotos();
+        if (homeworkSendButton) homeworkSendButton.disabled = true;
     };
 
-    const addHomeworkPhoto = (blob, name = 'homework.jpg') => {
+    const useHomeworkPhoto = (blob, name = 'homework.jpg') => {
         if (!blob || blob.size > 8 * 1024 * 1024) {
             showToast(copy.photoSize);
             return;
         }
-        if (homeworkPhotos.length >= HOMEWORK_MAX_PHOTOS) {
-            showToast(formatCopy(copy.homeworkPhotoLimit, { max: HOMEWORK_MAX_PHOTOS }));
-            return;
-        }
-        const file = blob instanceof File ? blob : new File([blob], name, { type: blob.type || 'image/jpeg' });
-        homeworkPhotos.push({ file, url: URL.createObjectURL(file) });
-        renderHomeworkPhotos();
+        homeworkPhoto = blob instanceof File ? blob : new File([blob], name, { type: blob.type || 'image/jpeg' });
+        if (homeworkPhotoUrl) URL.revokeObjectURL(homeworkPhotoUrl);
+        homeworkPhotoUrl = URL.createObjectURL(homeworkPhoto);
+        homeworkPhotoPreview.src = homeworkPhotoUrl;
+        homeworkPhotoPreview.hidden = false;
+        homeworkCameraVideo.hidden = true;
+        homeworkCameraEmpty?.setAttribute('hidden', '');
+        homeworkSendButton.disabled = usageLimitReached('image');
+        if (usageLimitReached('image')) showToast(formatCopy(copy.limitReached, { type: copy.imageType }));
     };
 
     const stopHomeworkRecording = () => {
@@ -813,7 +776,7 @@
     const resetHomework = () => {
         stopHomeworkCamera();
         stopHomeworkRecording();
-        resetHomeworkPhotos();
+        resetHomeworkPhoto();
         clearHomeworkRecording();
         if (homeworkQuestion) homeworkQuestion.value = '';
         document.querySelector('input[name="homework-answer-format"][value="text"]')?.click();
@@ -834,17 +797,8 @@
     document.querySelectorAll('[data-close-homework]').forEach((button) => button.addEventListener('click', closeHomeworkDialog));
     document.querySelector('[data-homework-choose-photo]')?.addEventListener('click', () => homeworkPhotoInput?.click());
     homeworkPhotoInput?.addEventListener('change', () => {
-        Array.from(homeworkPhotoInput.files || []).forEach((file) => addHomeworkPhoto(file, file.name));
-        homeworkPhotoInput.value = '';
-    });
-    homeworkPhotoList?.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-remove-homework-photo]');
-        if (!button) return;
-        const index = Number(button.dataset.removeHomeworkPhoto);
-        if (!Number.isInteger(index) || !homeworkPhotos[index]) return;
-        URL.revokeObjectURL(homeworkPhotos[index].url);
-        homeworkPhotos.splice(index, 1);
-        renderHomeworkPhotos();
+        const file = homeworkPhotoInput.files?.[0];
+        if (file) useHomeworkPhoto(file, file.name);
     });
     document.querySelector('[data-homework-capture-photo]')?.addEventListener('click', () => {
         if (!homeworkCameraVideo?.videoWidth) {
@@ -857,7 +811,7 @@
         canvas.width = Math.round(homeworkCameraVideo.videoWidth * scale);
         canvas.height = Math.round(homeworkCameraVideo.videoHeight * scale);
         canvas.getContext('2d', { alpha: false }).drawImage(homeworkCameraVideo, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => { if (blob) addHomeworkPhoto(blob, `homework-${Date.now()}.jpg`); }, 'image/jpeg', 0.86);
+        canvas.toBlob((blob) => { if (blob) useHomeworkPhoto(blob); }, 'image/jpeg', 0.86);
     });
 
     const startHomeworkRecording = async () => {
@@ -910,10 +864,9 @@
     };
 
     homeworkSendButton?.addEventListener('click', () => {
-        if (!homeworkPhotos.length) return;
-        const remainingPhotos = Math.max(0, usageState.image.limit - usageState.image.used);
-        if (homeworkPhotos.length > remainingPhotos) {
-            showToast(formatCopy(copy.homeworkPhotoRemaining, { remaining: remainingPhotos }));
+        if (!homeworkPhoto) return;
+        if (usageLimitReached('image')) {
+            showToast(formatCopy(copy.limitReached, { type: copy.imageType }));
             return;
         }
         if (homeworkRecordedBlob && usageLimitReached('voice')) {
@@ -922,9 +875,7 @@
         }
         const answerFormat = document.querySelector('input[name="homework-answer-format"]:checked')?.value || 'text';
         const formData = new FormData();
-        homeworkPhotos.forEach(({ file }, index) => {
-            formData.append('images[]', file, file.name || `homework-${index + 1}.jpg`);
-        });
+        formData.append('image', homeworkPhoto, homeworkPhoto.name || 'homework.jpg');
         formData.append('question', homeworkQuestion?.value.trim() || '');
         formData.append('answer_format', answerFormat);
         if (homeworkRecordedBlob) {
@@ -959,7 +910,7 @@
         homeworkTeachingText.textContent = result.teaching_text || result.answer_text || '';
         const showImage = result.answer_format === 'image' && Boolean(result.answer_image_url);
         homeworkAnswerTextWrap.hidden = showImage;
-        homeworkAnswerImageButton.hidden = !showImage;
+        homeworkAnswerImage.hidden = !showImage;
         if (showImage) homeworkAnswerImage.src = result.answer_image_url;
         else homeworkAnswerImage.removeAttribute('src');
         showDialog(homeworkResultDialog);
@@ -967,25 +918,6 @@
         homeworkExplanationVideo.play().catch(() => {});
         playHomeworkAudio();
     };
-
-    const setHomeworkImageZoom = (zoom) => {
-        homeworkImageZoom = Math.min(4, Math.max(0.75, zoom));
-        if (homeworkFullscreenImage) homeworkFullscreenImage.style.width = `${homeworkImageZoom * 100}%`;
-        if (homeworkZoomReset) homeworkZoomReset.textContent = `${Math.round(homeworkImageZoom * 100)}%`;
-    };
-
-    const closeHomeworkImage = () => hideDialog(homeworkImageViewer);
-
-    homeworkAnswerImageButton?.addEventListener('click', () => {
-        if (!homeworkAnswerImage?.src) return;
-        homeworkFullscreenImage.src = homeworkAnswerImage.src;
-        setHomeworkImageZoom(1);
-        showDialog(homeworkImageViewer);
-    });
-    document.querySelector('[data-homework-zoom-in]')?.addEventListener('click', () => setHomeworkImageZoom(homeworkImageZoom + 0.25));
-    document.querySelector('[data-homework-zoom-out]')?.addEventListener('click', () => setHomeworkImageZoom(homeworkImageZoom - 0.25));
-    homeworkZoomReset?.addEventListener('click', () => setHomeworkImageZoom(1));
-    document.querySelector('[data-close-homework-image]')?.addEventListener('click', closeHomeworkImage);
 
     const closeHomeworkResult = () => {
         stopHomeworkAudio();
@@ -1048,10 +980,6 @@
     homeworkResultDialog?.addEventListener('cancel', (event) => {
         event.preventDefault();
         closeHomeworkResult();
-    });
-    homeworkImageViewer?.addEventListener('cancel', (event) => {
-        event.preventDefault();
-        closeHomeworkImage();
     });
     homeworkHistoryDialog?.addEventListener('cancel', (event) => {
         event.preventDefault();

@@ -82,7 +82,7 @@ final class AiService
     }
 
     public function helpWithHomework(
-        array $jpegImages,
+        string $jpegBytes,
         string $questionText,
         ?string $audioPath,
         ?string $audioMimeType,
@@ -91,16 +91,9 @@ final class AiService
         string $displayName
     ): array {
         $language = normalize_language($language);
-        $dataUrls = [];
-        foreach (array_slice($jpegImages, 0, 4) as $jpegBytes) {
-            $dataUrl = 'data:image/jpeg;base64,' . base64_encode((string) $jpegBytes);
-            if ($this->imageIsUnsafe($dataUrl)) {
-                return $this->homeworkRefusal($language);
-            }
-            $dataUrls[] = $dataUrl;
-        }
-        if (!$dataUrls) {
-            throw new RuntimeException('No homework image was received.');
+        $dataUrl = 'data:image/jpeg;base64,' . base64_encode($jpegBytes);
+        if ($this->imageIsUnsafe($dataUrl)) {
+            return $this->homeworkRefusal($language);
         }
 
         $questionText = trim($questionText);
@@ -124,23 +117,19 @@ final class AiService
 
         $prompt = $this->basePrompt($ageGroup, $language) . "\n\n"
             . "Homework help task:\n"
-            . "- Read the homework page or pages in the images, in the order provided, and use the child's question: {$questionText}\n"
+            . "- Read the homework page in the image and use the child's question: {$questionText}\n"
             . "- Help the child understand the exercise, then give a concise answer only when the page is readable.\n"
             . "- Never pretend to read words, numbers, diagrams or instructions that are unclear. Ask for a clearer photo instead.\n"
             . "- Explain the reasoning in a kind teaching voice. Do not shame the child and do not encourage copying without understanding.\n"
             . "- Refuse content involving sexual, violent, illegal, dangerous, self-harm, drugs, weapons, private data, medical emergencies, or any physical or moral risk to a child.";
 
-        $content = [
-            ['type' => 'input_text', 'text' => $prompt],
-        ];
-        foreach ($dataUrls as $dataUrl) {
-            $content[] = ['type' => 'input_image', 'image_url' => $dataUrl, 'detail' => 'high'];
-        }
-
         $result = $this->createHomeworkAnswer([
             [
                 'role' => 'user',
-                'content' => $content,
+                'content' => [
+                    ['type' => 'input_text', 'text' => $prompt],
+                    ['type' => 'input_image', 'image_url' => $dataUrl, 'detail' => 'high'],
+                ],
             ],
         ]);
         $result['transcript'] = $questionText;
