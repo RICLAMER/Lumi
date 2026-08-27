@@ -220,16 +220,13 @@ unset($_SESSION['flash']);
                     <h3 id="homework-question-title"><?= $h($t('homework_question_title')) ?></h3>
                     <p><?= $h($t('homework_question_hint')) ?></p>
                     <div class="homework-question-field">
-                        <svg class="homework-question-microphone" aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
-                        <textarea class="homework-question-input" data-homework-question maxlength="1200" placeholder="<?= $h($t('homework_question_placeholder')) ?>"></textarea>
-                    </div>
-                    <div class="homework-audio-row">
-                        <button class="homework-record-button" type="button" data-homework-record aria-label="<?= $h($t('homework_record')) ?>">
+                        <button class="homework-record-button homework-record-inline" type="button" data-homework-record aria-label="<?= $h($t('homework_record')) ?>">
                             <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></svg>
                             <span data-homework-record-label><?= $h($t('homework_record')) ?></span>
                         </button>
-                        <span class="homework-recording-status" data-homework-record-status></span>
+                        <textarea class="homework-question-input" data-homework-question maxlength="1200" placeholder="<?= $h($t('homework_question_placeholder')) ?>"></textarea>
                     </div>
+                    <span class="homework-recording-status" data-homework-record-status></span>
                     <audio class="homework-audio-preview" data-homework-recording-preview controls hidden></audio>
 
                     <fieldset class="answer-format-toggle">

@@ -33,7 +33,7 @@
             homework: 'Homework help', homeworkReadyTitle: 'Your homework help is ready!',
             homeworkReadyMessage: 'Tap to see the answer and listen to Lumi explain it.',
             homeworkShowAnswer: 'See my help', explanation: 'Explanation', homeworkHistoryMissing: 'That homework help is no longer available.',
-            homeworkRecord: 'Record a question', homeworkRecordAgain: 'Record again',
+            homeworkRecord: 'Record with voice', homeworkRecordAgain: 'Record again',
             homeworkPhotoCount: '{count} of {max} photos', homeworkPhotoLimit: 'You can add up to {max} photos.',
             homeworkPhotoRemaining: 'Only {remaining} photo uploads remain today.', homeworkRemovePhoto: 'Remove photo {number}',
             categories: {
@@ -71,7 +71,7 @@
             homework: 'Ajuda com a lição', homeworkReadyTitle: 'Sua ajuda com a lição está pronta!',
             homeworkReadyMessage: 'Toque para ver a resposta e ouvir a Lumi explicar.',
             homeworkShowAnswer: 'Ver minha ajuda', explanation: 'Explicação', homeworkHistoryMissing: 'Essa ajuda com a lição não está mais disponível.',
-            homeworkRecord: 'Gravar uma pergunta', homeworkRecordAgain: 'Gravar novamente',
+            homeworkRecord: 'Gravar com Voz', homeworkRecordAgain: 'Gravar novamente',
             homeworkPhotoCount: '{count} de {max} fotos', homeworkPhotoLimit: 'Você pode adicionar até {max} fotos.',
             homeworkPhotoRemaining: 'Restam apenas {remaining} envios de foto hoje.', homeworkRemovePhoto: 'Remover foto {number}',
             categories: {
@@ -109,7 +109,7 @@
             homework: 'Ayuda con la tarea', homeworkReadyTitle: '¡Tu ayuda con la tarea está lista!',
             homeworkReadyMessage: 'Toca para ver la respuesta y escuchar a Lumi explicarla.',
             homeworkShowAnswer: 'Ver mi ayuda', explanation: 'Explicación', homeworkHistoryMissing: 'Esta ayuda con la tarea ya no está disponible.',
-            homeworkRecord: 'Grabar una pregunta', homeworkRecordAgain: 'Grabar de nuevo',
+            homeworkRecord: 'Grabar con voz', homeworkRecordAgain: 'Grabar de nuevo',
             homeworkPhotoCount: '{count} de {max} fotos', homeworkPhotoLimit: 'Puedes añadir hasta {max} fotos.',
             homeworkPhotoRemaining: 'Solo quedan {remaining} envíos de foto hoy.', homeworkRemovePhoto: 'Eliminar foto {number}',
             categories: {

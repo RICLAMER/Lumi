@@ -731,8 +731,7 @@ button {
     color: #fff;
 }
 
-.homework-photo-remove svg,
-.homework-question-microphone {
+.homework-photo-remove svg {
     fill: none;
     stroke: currentColor;
     stroke-width: 2;
@@ -749,22 +748,18 @@ button {
     position: relative;
 }
 
-.homework-question-microphone {
+.homework-record-inline {
     position: absolute;
-    z-index: 1;
-    top: 15px;
-    left: 14px;
-    width: 25px;
-    height: 25px;
-    color: #a52158;
-    pointer-events: none;
+    z-index: 2;
+    top: 10px;
+    left: 10px;
 }
 
 .homework-question-input {
     display: block;
     width: 100%;
     min-height: 130px;
-    padding: 50px 13px 13px;
+    padding: 66px 13px 13px;
     border: 1px solid #b9cdd5;
     border-radius: 8px;
     color: var(--ink);
@@ -776,13 +771,6 @@ button {
 .homework-question-input:focus {
     outline: 3px solid rgba(65, 168, 210, 0.22);
     border-color: var(--blue);
-}
-
-.homework-audio-row {
-    display: flex;
-    margin-top: 12px;
-    gap: 10px;
-    align-items: center;
 }
 
 .homework-record-button {
@@ -810,9 +798,15 @@ button {
 }
 
 .homework-recording-status {
+    display: block;
+    margin-top: 8px;
     color: #6c5270;
     font-size: 12px;
     font-weight: 800;
+}
+
+.homework-recording-status:empty {
+    display: none;
 }
 
 .homework-audio-preview {
