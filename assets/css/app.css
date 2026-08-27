@@ -621,19 +621,6 @@ button {
     padding: 26px;
 }
 
-.homework-shell {
-    max-height: calc(100svh - 26px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-.homework-shell::-webkit-scrollbar {
-    display: none;
-}
-
 .homework-header > div > p:last-child,
 .homework-history-shell .flow-header > div > p:last-child {
     max-width: 640px;
@@ -1558,12 +1545,6 @@ button {
     .homework-history-shell {
         min-height: 100svh;
         padding: max(18px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
-    }
-
-    .homework-shell {
-        height: 100svh;
-        min-height: 0;
-        max-height: 100svh;
     }
 
     .homework-workspace {
