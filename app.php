@@ -10,6 +10,9 @@ if (!$user) {
     exit;
 }
 
+header('Cache-Control: private, no-store, max-age=0');
+header('Pragma: no-cache');
+
 $language = set_language_preference((string) $user['language']);
 $locale = language_locale($language);
 $usage = ai_usage_summary($user);
@@ -18,6 +21,10 @@ $t = static fn(string $key, array $replacements = []): string =>
     lumi_t($language, $key, $replacements);
 $h = static fn(string $value): string =>
     htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$assetVersion = static fn(string $path): string =>
+    (string) (filemtime(__DIR__ . '/' . $path) ?: 1);
+$appCssVersion = $assetVersion('assets/css/app.css');
+$appJsVersion = $assetVersion('assets/js/app.js');
 
 $flash = (string) ($_SESSION['flash'] ?? '');
 unset($_SESSION['flash']);
@@ -35,8 +42,8 @@ unset($_SESSION['flash']);
     <link rel="icon" type="image/png" sizes="48x48" href="assets/icons/lumi-icon-48.png">
     <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
     <link rel="manifest" href="site.webmanifest">
-    <link rel="stylesheet" href="assets/css/app.css">
-    <script src="assets/js/app.js" defer></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=<?= $h($appCssVersion) ?>">
+    <script src="assets/js/app.js?v=<?= $h($appJsVersion) ?>" defer></script>
 </head>
 <body
     class="lumi-app"
