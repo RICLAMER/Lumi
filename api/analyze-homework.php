@@ -86,7 +86,8 @@ try {
     $imageUsage = reserve_ai_requests($user, 'image', count($cleanImages));
     $voiceUsage = $audioPath ? reserve_ai_request($user, 'voice') : null;
 
-    $result = (new AiService())->helpWithHomework(
+    $aiService = new AiService();
+    $result = $aiService->helpWithHomework(
         $cleanImages,
         $question,
         $audioPath,
@@ -95,8 +96,11 @@ try {
         $language,
         (string) $user['display_name']
     );
+    if ($answerFormat === 'image' && empty($result['blocked'])) {
+        $result['answer_image'] = $aiService->createHomeworkAnswerImage($cleanImages, $result, $language);
+    }
     $promptText = trim($question . (($result['transcript'] ?? '') !== $question ? "\n" . (string) ($result['transcript'] ?? '') : ''));
-    $history = save_homework_history($user, $result, $answerFormat, $cleanImages, $promptText, $language);
+    $history = save_homework_history($user, $result, $answerFormat, $promptText);
 
     json_response([
         'ok' => true,

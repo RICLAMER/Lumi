@@ -128,6 +128,7 @@
     const processingDialog = document.querySelector('#processing-dialog');
     const explanationDialog = document.querySelector('#explanation-dialog');
     const homeworkDialog = document.querySelector('#homework-dialog');
+    const homeworkCaptureReviewDialog = document.querySelector('#homework-capture-review-dialog');
     const homeworkResultDialog = document.querySelector('#homework-result-dialog');
     const homeworkHistoryDialog = document.querySelector('#homework-history-dialog');
     const toast = document.querySelector('[data-toast]');
@@ -161,7 +162,7 @@
 
     const anyFlowOpen = () => [
         photoDialog, voiceDialog, processingDialog, explanationDialog,
-        homeworkDialog, homeworkResultDialog, homeworkHistoryDialog,
+        homeworkDialog, homeworkCaptureReviewDialog, homeworkResultDialog, homeworkHistoryDialog,
     ]
         .some((dialog) => dialog?.open || dialog?.hasAttribute('open'));
 
@@ -688,6 +689,7 @@
     const homeworkPhotoInput = document.querySelector('[data-homework-photo-input]');
     const homeworkPhotoList = document.querySelector('[data-homework-photo-list]');
     const homeworkPhotoCount = document.querySelector('[data-homework-photo-count]');
+    const homeworkCaptureReviewImage = document.querySelector('[data-homework-capture-review-image]');
     const homeworkQuestion = document.querySelector('[data-homework-question]');
     const homeworkSendButton = document.querySelector('[data-send-homework]');
     const homeworkRecordButton = document.querySelector('[data-homework-record]');
@@ -711,6 +713,8 @@
 
     let homeworkCameraStream = null;
     let homeworkPhotos = [];
+    let homeworkPendingCapture = null;
+    let homeworkPendingCaptureUrl = '';
     let homeworkImageZoom = 1;
     let homeworkAudioStream = null;
     let homeworkRecorder = null;
@@ -780,6 +784,34 @@
         renderHomeworkPhotos();
     };
 
+    const clearHomeworkPendingCapture = () => {
+        if (homeworkPendingCaptureUrl) URL.revokeObjectURL(homeworkPendingCaptureUrl);
+        homeworkPendingCaptureUrl = '';
+        homeworkPendingCapture = null;
+        homeworkCaptureReviewImage?.removeAttribute('src');
+    };
+
+    const reviewHomeworkCapture = (blob) => {
+        if (!blob || blob.size > 8 * 1024 * 1024) {
+            showToast(copy.photoSize);
+            return;
+        }
+        if (homeworkPhotos.length >= HOMEWORK_MAX_PHOTOS) {
+            showToast(formatCopy(copy.homeworkPhotoLimit, { max: HOMEWORK_MAX_PHOTOS }));
+            return;
+        }
+        clearHomeworkPendingCapture();
+        homeworkPendingCapture = new File([blob], `homework-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        homeworkPendingCaptureUrl = URL.createObjectURL(homeworkPendingCapture);
+        if (homeworkCaptureReviewImage) homeworkCaptureReviewImage.src = homeworkPendingCaptureUrl;
+        showDialog(homeworkCaptureReviewDialog);
+    };
+
+    const retakeHomeworkCapture = () => {
+        hideDialog(homeworkCaptureReviewDialog);
+        clearHomeworkPendingCapture();
+    };
+
     const addHomeworkPhoto = (blob, name = 'homework.jpg') => {
         if (!blob || blob.size > 8 * 1024 * 1024) {
             showToast(copy.photoSize);
@@ -811,6 +843,8 @@
     };
 
     const resetHomework = () => {
+        hideDialog(homeworkCaptureReviewDialog);
+        clearHomeworkPendingCapture();
         stopHomeworkCamera();
         stopHomeworkRecording();
         resetHomeworkPhotos();
@@ -847,6 +881,10 @@
         renderHomeworkPhotos();
     });
     document.querySelector('[data-homework-capture-photo]')?.addEventListener('click', () => {
+        if (homeworkPhotos.length >= HOMEWORK_MAX_PHOTOS) {
+            showToast(formatCopy(copy.homeworkPhotoLimit, { max: HOMEWORK_MAX_PHOTOS }));
+            return;
+        }
         if (!homeworkCameraVideo?.videoWidth) {
             homeworkPhotoInput?.click();
             return;
@@ -857,8 +895,18 @@
         canvas.width = Math.round(homeworkCameraVideo.videoWidth * scale);
         canvas.height = Math.round(homeworkCameraVideo.videoHeight * scale);
         canvas.getContext('2d', { alpha: false }).drawImage(homeworkCameraVideo, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => { if (blob) addHomeworkPhoto(blob, `homework-${Date.now()}.jpg`); }, 'image/jpeg', 0.86);
+        canvas.toBlob((blob) => { if (blob && homeworkDialog?.open) reviewHomeworkCapture(blob); }, 'image/jpeg', 0.86);
     });
+    document.querySelector('[data-homework-confirm-capture]')?.addEventListener('click', () => {
+        const confirmedPhoto = homeworkPendingCapture;
+        hideDialog(homeworkCaptureReviewDialog);
+        homeworkPendingCapture = null;
+        if (homeworkPendingCaptureUrl) URL.revokeObjectURL(homeworkPendingCaptureUrl);
+        homeworkPendingCaptureUrl = '';
+        homeworkCaptureReviewImage?.removeAttribute('src');
+        if (confirmedPhoto) addHomeworkPhoto(confirmedPhoto, confirmedPhoto.name);
+    });
+    document.querySelector('[data-homework-retake-capture]')?.addEventListener('click', retakeHomeworkCapture);
 
     const startHomeworkRecording = async () => {
         if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -1045,6 +1093,10 @@
         event.preventDefault();
         closeHomeworkDialog();
     });
+    homeworkCaptureReviewDialog?.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        retakeHomeworkCapture();
+    });
     homeworkResultDialog?.addEventListener('cancel', (event) => {
         event.preventDefault();
         closeHomeworkResult();
@@ -1064,6 +1116,7 @@
         stopRecording();
         stopExplanationAudio();
         stopHomeworkCamera();
+        clearHomeworkPendingCapture();
         stopHomeworkRecording();
         stopHomeworkAudio();
     });

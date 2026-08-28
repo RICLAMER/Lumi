@@ -147,6 +147,69 @@ final class AiService
         return $this->finalizeHomework($result, $ageGroup, $language, $displayName);
     }
 
+    public function createHomeworkAnswerImage(
+        array $jpegImages,
+        array $homeworkResult,
+        string $language
+    ): array {
+        $language = normalize_language($language);
+        $errorMessage = lumi_t($language, 'homework_image_generation_error');
+        if (!$jpegImages || !empty($homeworkResult['blocked'])) {
+            throw new RuntimeException($errorMessage);
+        }
+
+        $outputLanguage = match ($language) {
+            'pt' => 'Brazilian Portuguese',
+            'es' => 'neutral international Spanish',
+            default => 'natural American English',
+        };
+        $answerText = trim((string) ($homeworkResult['answer_text'] ?? ''));
+        $title = trim((string) ($homeworkResult['title'] ?? ''));
+        if ($answerText === '') {
+            throw new RuntimeException($errorMessage);
+        }
+
+        $prompt = "Edit the provided homework page image or images. This is an image-editing task, not a request for a new unrelated illustration.\n"
+            . "- Preserve the photographed pages, their order, layout, printed questions, numbers, diagrams and legible handwriting as faithfully as possible.\n"
+            . "- Add the answers directly in the appropriate blank answer areas of the original page. Use neat, high-contrast blue handwriting.\n"
+            . "- Do not erase, replace, summarize or invent any original question. Do not add decorative characters, stickers, frames or unrelated text.\n"
+            . "- If more than one page was provided, return one clear vertical composition containing every edited page in the same order.\n"
+            . "- Write all added text in {$outputLanguage}. Keep mathematical notation exact and easy to read.\n"
+            . "- Use only the answer supplied below. If it contains an explanation, place the concise final answer on the page and keep annotations brief.\n\n"
+            . "Homework title: {$title}\n"
+            . "Answer to apply: {$answerText}";
+
+        $files = [];
+        foreach (array_slice($jpegImages, 0, 4) as $index => $jpegBytes) {
+            $files[] = [
+                'bytes' => (string) $jpegBytes,
+                'name' => 'homework-page-' . ($index + 1) . '.jpg',
+                'type' => 'image/jpeg',
+            ];
+        }
+        try {
+            $response = $this->client->multipartFiles('images/edits', [
+                'model' => (string) env('OPENAI_IMAGE_MODEL', 'gpt-image-2'),
+                'prompt' => $prompt,
+                'size' => 'auto',
+                'quality' => 'medium',
+                'output_format' => 'jpeg',
+                'output_compression' => '90',
+            ], 'image', $files, 240);
+        } catch (RuntimeException) {
+            throw new RuntimeException($errorMessage);
+        }
+
+        $encoded = (string) ($response['data'][0]['b64_json'] ?? '');
+        $imageBytes = base64_decode($encoded, true);
+        $imageInfo = $imageBytes === false ? false : @getimagesizefromstring($imageBytes);
+        if ($imageBytes === false || !is_array($imageInfo) || ($imageInfo['mime'] ?? '') !== 'image/jpeg') {
+            throw new RuntimeException($errorMessage);
+        }
+
+        return ['bytes' => $imageBytes, 'extension' => 'jpg'];
+    }
+
     private function basePrompt(string $ageGroup, string $language): string
     {
         $length = match ($ageGroup) {

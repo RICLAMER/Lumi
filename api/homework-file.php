@@ -15,8 +15,9 @@ if (!$item || !in_array($type, ['audio', 'image'], true)) {
 }
 
 $filename = $type === 'audio' ? (string) ($item['audio_path'] ?? '') : (string) ($item['answer_image_path'] ?? '');
-$extension = $type === 'audio' ? 'mp3' : 'svg';
-if (!preg_match('/^[a-f0-9]{36}\.' . $extension . '$/', $filename)) {
+$extension = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
+$allowedExtensions = $type === 'audio' ? ['mp3'] : ['svg', 'jpg', 'jpeg', 'png', 'webp'];
+if (!preg_match('/^[a-f0-9]{36}\.[a-z0-9]+$/', $filename) || !in_array($extension, $allowedExtensions, true)) {
     http_response_code(404);
     exit;
 }
@@ -27,7 +28,15 @@ if (!is_file($path)) {
     exit;
 }
 
-header('Content-Type: ' . ($type === 'audio' ? 'audio/mpeg' : 'image/svg+xml'));
+$contentTypes = [
+    'mp3' => 'audio/mpeg',
+    'svg' => 'image/svg+xml',
+    'jpg' => 'image/jpeg',
+    'jpeg' => 'image/jpeg',
+    'png' => 'image/png',
+    'webp' => 'image/webp',
+];
+header('Content-Type: ' . $contentTypes[$extension]);
 header('Content-Length: ' . (string) filesize($path));
 header('Cache-Control: private, max-age=3600');
 header('X-Content-Type-Options: nosniff');

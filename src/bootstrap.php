@@ -652,86 +652,11 @@ function homework_history_payload(array $item): array
     ];
 }
 
-function homework_svg_lines(string $text, int $lineLength = 52, int $limit = 8): array
-{
-    $text = preg_replace('/\s+/u', ' ', trim($text)) ?: '';
-    $words = preg_split('/\s+/u', $text) ?: [];
-    $lines = [];
-    $line = '';
-    foreach ($words as $word) {
-        $candidate = $line === '' ? $word : $line . ' ' . $word;
-        if (mb_strlen($candidate) > $lineLength && $line !== '') {
-            $lines[] = $line;
-            $line = $word;
-            if (count($lines) >= $limit) {
-                break;
-            }
-            continue;
-        }
-        $line = $candidate;
-    }
-    if ($line !== '' && count($lines) < $limit) {
-        $lines[] = $line;
-    }
-    if (count($words) && count($lines) >= $limit) {
-        $lines[$limit - 1] = rtrim($lines[$limit - 1], '. ') . '...';
-    }
-    return $lines;
-}
-
-function homework_answer_svg(array $jpegImages, string $title, string $answer, string $language): string
-{
-    $safeTitle = htmlspecialchars($title, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-    $lines = homework_svg_lines($answer, 52, 16);
-    $photoHeight = max(1, count($jpegImages)) * 900;
-    $panelTop = $photoHeight - 62;
-    $panelHeight = max(620, 250 + (count($lines) * 52));
-    $viewHeight = $panelTop + $panelHeight + 42;
-    $imageMarkup = '';
-    foreach (array_slice($jpegImages, 0, 4) as $index => $jpegBytes) {
-        $image = base64_encode((string) $jpegBytes);
-        $y = $index * 900;
-        $imageMarkup .= "<rect x=\"0\" y=\"{$y}\" width=\"1200\" height=\"900\" fill=\"#ffffff\"/>";
-        $imageMarkup .= "<image href=\"data:image/jpeg;base64,{$image}\" x=\"0\" y=\"{$y}\" width=\"1200\" height=\"900\" preserveAspectRatio=\"xMidYMid meet\"/>";
-    }
-    $lineMarkup = '';
-    foreach ($lines as $index => $line) {
-        $safeLine = htmlspecialchars($line, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-        $y = $panelTop + 212 + ($index * 52);
-        $lineMarkup .= "<text x=\"86\" y=\"{$y}\" class=\"answer\">{$safeLine}</text>";
-    }
-    $label = match (normalize_language($language)) {
-        'pt' => 'Resposta da Lumi',
-        'es' => 'Respuesta de Lumi',
-        default => 'Lumi\'s answer',
-    };
-    $safeLabel = htmlspecialchars($label, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-
-    return <<<SVG
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 {$viewHeight}" role="img" aria-label="{$safeLabel}">
-  <style>
-    .label { font: 700 25px Arial, sans-serif; fill: #a52158; letter-spacing: 1.3px; }
-    .title { font: 700 46px Arial, sans-serif; fill: #17324d; }
-    .answer { font: 400 35px Arial, sans-serif; fill: #17324d; }
-  </style>
-  <rect width="1200" height="{$viewHeight}" fill="#f7fbfc"/>
-  {$imageMarkup}
-  <rect x="42" y="{$panelTop}" width="1116" height="{$panelHeight}" rx="30" fill="#ffffff"/>
-  <rect x="42" y="{$panelTop}" width="18" height="{$panelHeight}" rx="9" fill="#ff6d9f"/>
-  <text x="86" y="{$panelTop}" dy="82" class="label">{$safeLabel}</text>
-  <text x="86" y="{$panelTop}" dy="144" class="title">{$safeTitle}</text>
-  {$lineMarkup}
-</svg>
-SVG;
-}
-
 function save_homework_history(
     array $user,
     array $result,
     string $answerFormat,
-    array $sourceImages,
-    string $promptText,
-    string $language
+    string $promptText
 ): array {
     $answerFormat = $answerFormat === 'image' ? 'image' : 'text';
     $token = bin2hex(random_bytes(18));
@@ -753,12 +678,18 @@ function save_homework_history(
         }
     }
     if (!$result['blocked'] && $answerFormat === 'image') {
-        $imagePath = $token . '.svg';
-        file_put_contents(
-            $directory . '/' . $imagePath,
-            homework_answer_svg($sourceImages, (string) $result['title'], (string) $result['answer_text'], $language),
-            LOCK_EX
-        );
+        $answerImage = $result['answer_image'] ?? null;
+        $extension = is_array($answerImage) ? (string) ($answerImage['extension'] ?? '') : '';
+        $imageBytes = is_array($answerImage) ? (string) ($answerImage['bytes'] ?? '') : '';
+        if ($extension !== 'jpg' || $imageBytes === '') {
+            throw new RuntimeException('A imagem da resposta não pôde ser salva.');
+        }
+        $imagePath = $token . '.jpg';
+        $targetPath = $directory . '/' . $imagePath;
+        if (file_put_contents($targetPath, $imageBytes, LOCK_EX) === false) {
+            throw new RuntimeException('A imagem da resposta não pôde ser salva.');
+        }
+        @chmod($targetPath, 0644);
     }
 
     $statement = db()->prepare(
@@ -791,7 +722,7 @@ function save_homework_history(
     foreach ($oldItems->fetchAll() as $oldItem) {
         foreach (['audio_path', 'answer_image_path'] as $field) {
             $path = (string) ($oldItem[$field] ?? '');
-            if ($path !== '' && preg_match('/^[a-f0-9]{36}\.(?:mp3|svg)$/', $path)) {
+            if ($path !== '' && preg_match('/^[a-f0-9]{36}\.(?:mp3|svg|jpe?g|png|webp)$/', $path)) {
                 @unlink($directory . '/' . $path);
             }
         }

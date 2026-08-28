@@ -54,6 +54,57 @@ final class OpenAIClient
         return $this->executeJson($curl);
     }
 
+    public function multipartFiles(
+        string $path,
+        array $fields,
+        string $fileField,
+        array $files,
+        int $timeout = 180
+    ): array {
+        if (!$files) {
+            throw new InvalidArgumentException('At least one file is required.');
+        }
+
+        $boundary = '----Lumi' . bin2hex(random_bytes(18));
+        $body = '';
+        foreach ($fields as $name => $value) {
+            $safeName = str_replace(["\r", "\n", '"'], '', (string) $name);
+            $body .= "--{$boundary}\r\n";
+            $body .= "Content-Disposition: form-data; name=\"{$safeName}\"\r\n\r\n";
+            $body .= (string) $value . "\r\n";
+        }
+        foreach ($files as $index => $file) {
+            $bytes = (string) ($file['bytes'] ?? '');
+            if ($bytes === '') {
+                throw new InvalidArgumentException('The uploaded image is empty.');
+            }
+            $filename = str_replace(["\r", "\n", '"'], '', (string) ($file['name'] ?? "image-{$index}.jpg"));
+            $mimeType = str_replace(["\r", "\n"], '', (string) ($file['type'] ?? 'application/octet-stream'));
+            $body .= "--{$boundary}\r\n";
+            $body .= "Content-Disposition: form-data; name=\"{$fileField}[]\"; filename=\"{$filename}\"\r\n";
+            $body .= "Content-Type: {$mimeType}\r\n\r\n";
+            $body .= $bytes . "\r\n";
+        }
+        $body .= "--{$boundary}--\r\n";
+
+        $curl = curl_init('https://api.openai.com/v1/' . ltrim($path, '/'));
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_CONNECTTIMEOUT => 20,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $this->apiKey,
+                'Content-Type: multipart/form-data; boundary=' . $boundary,
+                'Content-Length: ' . strlen($body),
+                'Expect:',
+            ],
+            CURLOPT_POSTFIELDS => $body,
+        ]);
+
+        return $this->executeJson($curl);
+    }
+
     public function binary(string $path, array $payload, int $timeout = 90): string
     {
         $body = json_encode(

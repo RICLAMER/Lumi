@@ -718,6 +718,83 @@ button {
     object-fit: cover;
 }
 
+.homework-capture-review {
+    width: 100vw;
+    max-width: none;
+    height: 100svh;
+    max-height: none;
+    padding: 0;
+    border: 0;
+    background: #071522;
+    color: #fff;
+}
+
+.homework-capture-review::backdrop {
+    background: rgba(2, 9, 15, 0.96);
+}
+
+.homework-capture-review-shell {
+    display: grid;
+    height: 100svh;
+    grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.homework-capture-review-stage {
+    display: grid;
+    min-height: 0;
+    padding: max(12px, env(safe-area-inset-top)) 12px 8px;
+    place-items: center;
+    overflow: hidden;
+}
+
+.homework-capture-review-stage img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.homework-capture-review-footer {
+    padding: 14px 16px max(16px, env(safe-area-inset-bottom));
+    border-top: 1px solid #385065;
+    background: #10293c;
+    text-align: center;
+}
+
+.homework-capture-review-footer h2 {
+    margin: 0 0 12px;
+    color: #fff;
+    font-size: 21px;
+}
+
+.homework-capture-review-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.homework-capture-confirm,
+.homework-capture-retake {
+    min-width: min(220px, 44vw);
+    color: #fff;
+}
+
+.homework-capture-confirm {
+    background: #2f8b52;
+}
+
+.homework-capture-confirm:hover {
+    background: #247342;
+}
+
+.homework-capture-retake {
+    background: #c33c4a;
+}
+
+.homework-capture-retake:hover {
+    background: #a92e3b;
+}
+
 .homework-photo-remove {
     position: absolute;
     top: 4px;
@@ -1744,6 +1821,16 @@ button {
     .homework-photo-panel,
     .homework-question-panel {
         padding: 14px;
+    }
+
+    .homework-capture-review-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .homework-capture-confirm,
+    .homework-capture-retake {
+        min-width: 0;
     }
 
     .homework-camera-stage {

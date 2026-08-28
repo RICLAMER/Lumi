@@ -253,6 +253,27 @@ unset($_SESSION['flash']);
         </div>
     </dialog>
 
+    <dialog class="homework-capture-review" id="homework-capture-review-dialog" aria-labelledby="homework-capture-review-title">
+        <div class="homework-capture-review-shell">
+            <div class="homework-capture-review-stage">
+                <img data-homework-capture-review-image alt="<?= $h($t('homework_capture_review_alt')) ?>">
+            </div>
+            <div class="homework-capture-review-footer">
+                <h2 id="homework-capture-review-title"><?= $h($t('homework_capture_review_title')) ?></h2>
+                <div class="homework-capture-review-actions">
+                    <button class="action-button homework-capture-confirm" type="button" data-homework-confirm-capture>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>
+                        <?= $h($t('homework_capture_confirm')) ?>
+                    </button>
+                    <button class="action-button homework-capture-retake" type="button" data-homework-retake-capture>
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 3-6M4 4v6h6"/></svg>
+                        <?= $h($t('homework_capture_retake')) ?>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+
     <dialog class="flow-dialog voice-dialog" id="voice-dialog" aria-labelledby="voice-title">
         <div class="voice-shell">
             <button class="icon-button voice-close" type="button" data-close-voice aria-label="<?= $h($t('exit')) ?>">
